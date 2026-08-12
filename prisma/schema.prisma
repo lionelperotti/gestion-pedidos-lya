@@ -1,0 +1,119 @@
+// Esquema de base de datos - Gestión de Pedidos LYA
+// Basado en el documento de prerrequisitos del proyecto
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------
+// Usuarios y Perfiles
+// ---------------------------------------------------------
+
+model Perfil {
+  id          String   @id @default(cuid())
+  nombre      String   @unique // "Administrador", "Vendedor", (futuros perfiles)
+  descripcion String?
+  usuarios    Usuario[]
+  creadoEn    DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+}
+
+model Usuario {
+  id            String    @id @default(cuid())
+  nombre        String
+  email         String    @unique
+  passwordHash  String
+  activo        Boolean   @default(true)
+  perfilId      String
+  perfil        Perfil    @relation(fields: [perfilId], references: [id])
+  clientes      Cliente[] // Clientes asociados a este usuario cuando su perfil es "Vendedor"
+  pedidos       Pedido[]  // Pedidos cargados por este usuario cuando su perfil es "Vendedor"
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------
+// Proveedores y Productos
+// ---------------------------------------------------------
+
+model Proveedor {
+  id            String    @id @default(cuid())
+  nombre        String
+  contacto      String?
+  telefono      String?
+  email         String?
+  activo        Boolean   @default(true)
+  productos     Producto[]
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+}
+
+model Producto {
+  id            String       @id @default(cuid())
+  nombre        String
+  descripcion   String?
+  fotoUrl       String?      // URL de la foto del producto (storage externo)
+  precio        Decimal      @db.Decimal(10, 2)
+  stock         Int          @default(0)
+  activo        Boolean      @default(true)
+  proveedorId   String
+  proveedor     Proveedor    @relation(fields: [proveedorId], references: [id])
+  itemsPedido   PedidoItem[]
+  creadoEn      DateTime     @default(now())
+  actualizadoEn DateTime     @updatedAt
+}
+
+// ---------------------------------------------------------
+// Clientes
+// ---------------------------------------------------------
+
+model Cliente {
+  id            String    @id @default(cuid())
+  nombre        String
+  telefono      String?
+  email         String?
+  direccion     String?
+  vendedorId    String
+  vendedor      Usuario   @relation(fields: [vendedorId], references: [id])
+  pedidos       Pedido[]
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------
+// Pedidos
+// ---------------------------------------------------------
+
+enum EstadoPedido {
+  PENDIENTE
+  EXPORTADO // ya se generó el PDF y se considera enviado a la distribuidora
+}
+
+model Pedido {
+  id            String        @id @default(cuid())
+  numero        Int           @default(autoincrement())
+  estado        EstadoPedido  @default(PENDIENTE)
+  clienteId     String
+  cliente       Cliente       @relation(fields: [clienteId], references: [id])
+  vendedorId    String
+  vendedor      Usuario       @relation(fields: [vendedorId], references: [id])
+  items         PedidoItem[]
+  exportadoEn   DateTime?
+  creadoEn      DateTime      @default(now())
+  actualizadoEn DateTime      @updatedAt
+}
+
+model PedidoItem {
+  id          String   @id @default(cuid())
+  pedidoId    String
+  pedido      Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  cantidad    Int
+  precioUnitario Decimal @db.Decimal(10, 2) // se copia el precio al momento del pedido
+}
