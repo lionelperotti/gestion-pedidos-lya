@@ -53,15 +53,13 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        // @ts-expect-error -- agregamos perfil al user en authorize()
         token.perfil = user.perfil;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        // @ts-expect-error -- agregamos perfil al session.user
+        session.user.id = token.id;
         session.user.perfil = token.perfil;
       }
       return session;

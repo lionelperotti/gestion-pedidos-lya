@@ -17,7 +17,6 @@ export default async function Home() {
             Gestión de Pedidos
           </h1>
           <p className="text-sm text-slate-500">
-            {/* @ts-expect-error -- perfil agregado en el callback de sesión */}
             {usuario.name} · {usuario.perfil}
           </p>
         </div>
