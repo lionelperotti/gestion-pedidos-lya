@@ -3,6 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+export interface UsuarioSesion {
+  id: string;
+  name: string;
+  email: string;
+  perfil: string;
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
@@ -52,15 +59,19 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.perfil = user.perfil;
+        const u = user as unknown as UsuarioSesion;
+        const t = token as Record<string, unknown>;
+        t.id = u.id;
+        t.perfil = u.perfil;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.perfil = token.perfil;
+        const t = token as Record<string, unknown>;
+        const usuarioSesion = session.user as unknown as UsuarioSesion;
+        usuarioSesion.id = t.id as string;
+        usuarioSesion.perfil = t.perfil as string;
       }
       return session;
     },

@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import { getSessionUsuario } from "@/lib/session";
 import CerrarSesionBoton from "@/components/CerrarSesionBoton";
+import type { UsuarioSesion } from "@/lib/auth";
 
 export default async function Home() {
-  const usuario = await getSessionUsuario();
+  const sesionUsuario = await getSessionUsuario();
 
-  if (!usuario) {
+  if (!sesionUsuario) {
     redirect("/login");
   }
+
+  const usuario = sesionUsuario as unknown as UsuarioSesion;
 
   return (
     <main className="min-h-screen bg-slate-50">
