@@ -29,33 +29,59 @@ export default async function Home() {
       </header>
 
       <div className="mx-auto max-w-3xl px-6 py-12">
-        {esAdmin && (
-          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Link
-              href="/usuarios"
-              className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
-            >
-              Usuarios
-            </Link>
-            <Link
-              href="/perfiles"
-              className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
-            >
-              Perfiles
-            </Link>
-            <Link
-              href="/proveedores"
-              className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
-            >
-              Proveedores
-            </Link>
-          </div>
-        )}
+        <div className="mb-8 grid grid-cols-2 gap-4">
+          <Link
+            href="/pedidos/nuevo"
+            className="rounded-lg bg-blue-700 px-4 py-6 text-center font-semibold text-white shadow-sm transition-colors hover:bg-blue-800"
+          >
+            + Nuevo pedido
+          </Link>
+          <Link
+            href="/pedidos"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+          >
+            Ver pedidos
+          </Link>
+        </div>
 
-        <p className="text-center text-slate-600">
-          Las pantallas de Proveedores, Productos, Clientes y Pedidos se van a
-          ir agregando acá.
-        </p>
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <Link
+            href="/clientes"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+          >
+            Clientes
+          </Link>
+          {esAdmin && (
+            <Link
+              href="/productos"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+            >
+              Productos
+            </Link>
+          )}
+          {esAdmin && (
+            <>
+              <Link
+                href="/proveedores"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Proveedores
+              </Link>
+              <Link
+                href="/usuarios"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Usuarios
+              </Link>
+              <Link
+                href="/perfiles"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Perfiles
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </main>
   );
