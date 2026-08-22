@@ -1,14 +1,24 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { autorizarUsuario } from "./actions";
+import RechazarBoton from "./RechazarBoton";
 
 export default async function UsuariosPage() {
   await requireAdmin();
 
-  const usuarios = await prisma.usuario.findMany({
-    orderBy: { nombre: "asc" },
-    include: { perfil: true },
-  });
+  const [usuarios, pendientes, perfiles] = await Promise.all([
+    prisma.usuario.findMany({
+      where: { estado: "ACTIVO" },
+      orderBy: { nombre: "asc" },
+      include: { perfil: true },
+    }),
+    prisma.usuario.findMany({
+      where: { estado: "PENDIENTE" },
+      orderBy: { creadoEn: "desc" },
+    }),
+    prisma.perfil.findMany({ orderBy: { nombre: "asc" } }),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -28,6 +38,58 @@ export default async function UsuariosPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
+        {pendientes.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-700">
+              Pendientes de autorizar ({pendientes.length})
+            </h2>
+            <div className="space-y-3">
+              {pendientes.map((pendiente) => {
+                const autorizarConId = autorizarUsuario.bind(null, pendiente.id);
+                return (
+                  <div
+                    key={pendiente.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900">{pendiente.nombre}</p>
+                      <p className="text-sm text-slate-600">{pendiente.email}</p>
+                      <p className="text-xs text-slate-500">
+                        Se registró con Google el{" "}
+                        {new Date(pendiente.creadoEn).toLocaleDateString("es-AR")}
+                      </p>
+                    </div>
+                    <form action={autorizarConId} className="flex items-center gap-2">
+                      <select
+                        name="perfilId"
+                        required
+                        defaultValue=""
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      >
+                        <option value="" disabled>
+                          Elegir perfil
+                        </option>
+                        {perfiles.map((perfil) => (
+                          <option key={perfil.id} value={perfil.id}>
+                            {perfil.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                      >
+                        Autorizar
+                      </button>
+                      <RechazarBoton usuarioId={pendiente.id} />
+                    </form>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
@@ -48,7 +110,7 @@ export default async function UsuariosPage() {
                   <td className="px-4 py-3 text-slate-600">{usuario.email}</td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                      {usuario.perfil.nombre}
+                      {usuario.perfil?.nombre ?? "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3">

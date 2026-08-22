@@ -13,6 +13,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  const esPendiente = token.estado === "PENDIENTE";
+  const enPantallaDeEspera = request.nextUrl.pathname.startsWith("/pendiente-autorizacion");
+
+  if (esPendiente && !enPantallaDeEspera) {
+    return NextResponse.redirect(new URL("/pendiente-autorizacion", request.url));
+  }
+
+  if (!esPendiente && enPantallaDeEspera) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   return NextResponse.next();
 }
 

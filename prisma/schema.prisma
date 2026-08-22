@@ -23,14 +23,20 @@ model Perfil {
   actualizadoEn DateTime @updatedAt
 }
 
+enum EstadoUsuario {
+  PENDIENTE // se logueó con Google por primera vez, esperando que un Administrador le asigne un perfil
+  ACTIVO
+}
+
 model Usuario {
   id            String    @id @default(cuid())
   nombre        String
   email         String    @unique
-  passwordHash  String
+  passwordHash  String?   // opcional: usuarios que solo entran con Google no tienen contraseña propia
   activo        Boolean   @default(true)
-  perfilId      String
-  perfil        Perfil    @relation(fields: [perfilId], references: [id])
+  estado        EstadoUsuario @default(ACTIVO)
+  perfilId      String?   // opcional: nulo mientras el usuario está PENDIENTE de autorización
+  perfil        Perfil?   @relation(fields: [perfilId], references: [id])
   clientes      Cliente[] // Clientes asociados a este usuario cuando su perfil es "Vendedor"
   pedidos       Pedido[]  // Pedidos cargados por este usuario cuando su perfil es "Vendedor"
   creadoEn      DateTime  @default(now())

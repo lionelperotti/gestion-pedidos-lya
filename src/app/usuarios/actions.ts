@@ -25,11 +25,35 @@ export async function crearUsuario(formData: FormData) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   await prisma.usuario.create({
-    data: { nombre, email, passwordHash, perfilId },
+    data: { nombre, email, passwordHash, perfilId, estado: "ACTIVO" },
   });
 
   revalidatePath("/usuarios");
   redirect("/usuarios");
+}
+
+export async function autorizarUsuario(usuarioId: string, formData: FormData) {
+  await requireAdmin();
+
+  const perfilId = String(formData.get("perfilId") ?? "");
+  if (!perfilId) {
+    throw new Error("Tenés que seleccionar un perfil para autorizar al usuario.");
+  }
+
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { perfilId, estado: "ACTIVO" },
+  });
+
+  revalidatePath("/usuarios");
+}
+
+export async function rechazarUsuario(usuarioId: string) {
+  await requireAdmin();
+
+  await prisma.usuario.delete({ where: { id: usuarioId } });
+
+  revalidatePath("/usuarios");
 }
 
 export async function actualizarUsuario(usuarioId: string, formData: FormData) {
