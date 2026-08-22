@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
           id: usuario.id,
           name: usuario.nombre,
           email: usuario.email,
-        };
+        } as unknown as import("next-auth").User;
       },
     }),
     GoogleProvider({
