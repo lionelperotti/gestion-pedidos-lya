@@ -50,16 +50,69 @@ export default function ImportarForm({
       const buffer = await archivo.arrayBuffer();
       const libro = XLSX.read(buffer, { type: "array" });
       const hoja = libro.Sheets[libro.SheetNames[0]];
-      const filasRaw = XLSX.utils.sheet_to_json<Record<string, unknown>>(hoja, {
+
+      // Leemos como matriz cruda primero, para poder detectar si hay
+      // fila de encabezados o si el archivo arranca directo con datos.
+      const filasCrudas = XLSX.utils.sheet_to_json<unknown[]>(hoja, {
+        header: 1,
         defval: "",
       });
 
-      const filas: FilaImportacion[] = filasRaw.map((f) => ({
-        codigoProveedor: String(f["CodigoProducto"] ?? f["Código Producto"] ?? "").trim(),
-        nombre: String(f["Nombre"] ?? "").trim(),
-        precioSinIva: Number(f["PrecioSinIva"] ?? f["Precio S/IVA"] ?? 0),
-        iva: Number(f["IVA"] ?? 21),
-      }));
+      if (filasCrudas.length === 0) {
+        setError("El archivo no tiene filas de datos.");
+        setCargando(false);
+        return;
+      }
+
+      const encabezadosPosibles = [
+        "codigoproducto",
+        "código producto",
+        "nombre",
+        "preciosiniva",
+        "precio s/iva",
+        "iva",
+        "fotourl",
+        "foto url",
+        "url foto",
+      ];
+      const primeraFila = filasCrudas[0].map((c) => String(c).trim().toLowerCase());
+      const tieneEncabezados = primeraFila.some((c) => encabezadosPosibles.includes(c));
+
+      let filas: FilaImportacion[];
+
+      if (tieneEncabezados) {
+        // Modo con encabezados: buscamos las columnas por nombre
+        const idxCodigo = primeraFila.findIndex((c) =>
+          ["codigoproducto", "código producto"].includes(c)
+        );
+        const idxNombre = primeraFila.findIndex((c) => c === "nombre");
+        const idxPrecio = primeraFila.findIndex((c) =>
+          ["preciosiniva", "precio s/iva"].includes(c)
+        );
+        const idxIva = primeraFila.findIndex((c) => c === "iva");
+        const idxFoto = primeraFila.findIndex((c) =>
+          ["fotourl", "foto url", "url foto"].includes(c)
+        );
+
+        filas = filasCrudas.slice(1).map((fila) => ({
+          codigoProveedor: String(fila[idxCodigo] ?? "").trim(),
+          nombre: String(fila[idxNombre] ?? "").trim(),
+          precioSinIva: Number(fila[idxPrecio] ?? 0),
+          iva: Number(fila[idxIva] ?? 21),
+          fotoUrl: idxFoto >= 0 ? String(fila[idxFoto] ?? "").trim() : "",
+        }));
+      } else {
+        // Sin encabezados: asumimos el orden Código | Nombre | Precio S/IVA | IVA | FotoUrl (opcional)
+        filas = filasCrudas.map((fila) => ({
+          codigoProveedor: String(fila[0] ?? "").trim(),
+          nombre: String(fila[1] ?? "").trim(),
+          precioSinIva: Number(fila[2] ?? 0),
+          iva: Number(fila[3] ?? 21),
+          fotoUrl: String(fila[4] ?? "").trim(),
+        }));
+      }
+
+      filas = filas.filter((f) => f.nombre || f.codigoProveedor);
 
       if (filas.length === 0) {
         setError("El archivo no tiene filas de datos.");
@@ -149,14 +202,17 @@ export default function ImportarForm({
         </div>
 
         <p className="mb-3 text-sm text-slate-600">
-          Con el proveedor y la marca ya elegidos, el Excel solo necesita estas
-          columnas en la primera fila:{" "}
+          Con el proveedor y la marca ya elegidos, el Excel puede tener una fila de
+          encabezados (
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-            CodigoProducto, Nombre, PrecioSinIva, IVA
+            CodigoProducto, Nombre, PrecioSinIva, IVA, FotoUrl
           </code>
-          . Si el <code className="rounded bg-slate-100 px-1 text-xs">CodigoProducto</code>{" "}
-          ya existe para este proveedor, se actualiza el precio. Si no existe, se crea
-          un producto nuevo con la marca seleccionada.
+          ) o directamente empezar con los datos, siempre en ese mismo orden de
+          columnas. La columna de foto es opcional: si viene vacía, no se toca la
+          foto que ya tenga el producto; si trae una URL, la reemplaza. Si el código
+          ya existe para este proveedor, se actualiza el precio (y la foto si vino
+          cargada). Si no existe, se crea un producto nuevo con la marca
+          seleccionada.
         </p>
         <input
           type="file"

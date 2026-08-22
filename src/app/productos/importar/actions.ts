@@ -9,6 +9,7 @@ export interface FilaImportacion {
   nombre: string;
   precioSinIva: number;
   iva: number;
+  fotoUrl: string;
 }
 
 export interface FilaPreview extends FilaImportacion {
@@ -98,6 +99,7 @@ export async function aplicarImportacionMasiva(
           iva: fila.iva,
           precioFinal,
           precioActualizadoEn: new Date(),
+          ...(fila.fotoUrl ? { fotoUrl: fila.fotoUrl } : {}),
         },
       });
       actualizados++;
@@ -106,6 +108,7 @@ export async function aplicarImportacionMasiva(
         data: {
           nombre: fila.nombre,
           codigoProveedor: fila.codigoProveedor || null,
+          fotoUrl: fila.fotoUrl || null,
           precioSinIva: fila.precioSinIva,
           iva: fila.iva,
           precioFinal,
