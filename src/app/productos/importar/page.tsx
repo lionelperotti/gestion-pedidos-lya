@@ -1,9 +1,16 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import ImportarForm from "./ImportarForm";
 
 export default async function ImportarProductosPage() {
   await requireAdmin();
+
+  const proveedores = await prisma.proveedor.findMany({
+    where: { activo: true },
+    orderBy: { nombre: "asc" },
+    include: { marcas: { orderBy: { nombre: "asc" } } },
+  });
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -15,7 +22,13 @@ export default async function ImportarProductosPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <ImportarForm />
+        {proveedores.length === 0 ? (
+          <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            No hay proveedores activos. Creá uno primero en la sección Proveedores.
+          </p>
+        ) : (
+          <ImportarForm proveedores={proveedores} />
+        )}
       </div>
     </main>
   );

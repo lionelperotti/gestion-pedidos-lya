@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 import {
@@ -10,14 +10,32 @@ import {
   type FilaPreview,
 } from "./actions";
 
-export default function ImportarForm() {
+interface ProveedorConMarcas {
+  id: string;
+  nombre: string;
+  marcas: { id: string; nombre: string }[];
+}
+
+export default function ImportarForm({
+  proveedores,
+}: {
+  proveedores: ProveedorConMarcas[];
+}) {
   const router = useRouter();
+  const [proveedorId, setProveedorId] = useState("");
+  const [marcaId, setMarcaId] = useState("");
   const [preview, setPreview] = useState<FilaPreview[] | null>(null);
   const [cargando, setCargando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{ creados: number; actualizados: number } | null>(
     null
+  );
+
+  const proveedorSeleccionado = proveedores.find((p) => p.id === proveedorId);
+  const marcasDisponibles = useMemo(
+    () => proveedorSeleccionado?.marcas ?? [],
+    [proveedorSeleccionado]
   );
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -37,9 +55,7 @@ export default function ImportarForm() {
       });
 
       const filas: FilaImportacion[] = filasRaw.map((f) => ({
-        proveedor: String(f["Proveedor"] ?? "").trim(),
-        marca: String(f["Marca"] ?? "").trim(),
-        codigoProveedor: String(f["CodigoProveedor"] ?? f["Código Proveedor"] ?? "").trim(),
+        codigoProveedor: String(f["CodigoProducto"] ?? f["Código Producto"] ?? "").trim(),
         nombre: String(f["Nombre"] ?? "").trim(),
         precioSinIva: Number(f["PrecioSinIva"] ?? f["Precio S/IVA"] ?? 0),
         iva: Number(f["IVA"] ?? 21),
@@ -51,7 +67,7 @@ export default function ImportarForm() {
         return;
       }
 
-      const resultadoPreview = await previsualizarImportacion(filas);
+      const resultadoPreview = await previsualizarImportacion(proveedorId, marcaId, filas);
       setPreview(resultadoPreview);
     } catch {
       setError(
@@ -68,7 +84,7 @@ export default function ImportarForm() {
     setAplicando(true);
     setError(null);
     try {
-      const res = await aplicarImportacionMasiva(preview);
+      const res = await aplicarImportacionMasiva(proveedorId, marcaId, preview);
       setResultado(res);
       setPreview(null);
       router.refresh();
@@ -82,28 +98,78 @@ export default function ImportarForm() {
   const aCrear = preview?.filter((f) => f.accion === "crear").length ?? 0;
   const aActualizar = preview?.filter((f) => f.accion === "actualizar").length ?? 0;
   const conError = preview?.filter((f) => f.accion === "error").length ?? 0;
+  const puedeSubirArchivo = Boolean(proveedorId && marcaId);
 
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Proveedor
+            </label>
+            <select
+              value={proveedorId}
+              onChange={(e) => {
+                setProveedorId(e.target.value);
+                setMarcaId("");
+                setPreview(null);
+              }}
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Seleccionar proveedor</option>
+              {proveedores.map((proveedor) => (
+                <option key={proveedor.id} value={proveedor.id}>
+                  {proveedor.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Marca</label>
+            <select
+              value={marcaId}
+              onChange={(e) => {
+                setMarcaId(e.target.value);
+                setPreview(null);
+              }}
+              disabled={!proveedorId}
+              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-400"
+            >
+              <option value="">
+                {proveedorId ? "Seleccionar marca" : "Elegí primero un proveedor"}
+              </option>
+              {marcasDisponibles.map((marca) => (
+                <option key={marca.id} value={marca.id}>
+                  {marca.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <p className="mb-3 text-sm text-slate-600">
-          El archivo Excel debe tener estas columnas en la primera fila:{" "}
+          Con el proveedor y la marca ya elegidos, el Excel solo necesita estas
+          columnas en la primera fila:{" "}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-            Proveedor, Marca, CodigoProveedor, Nombre, PrecioSinIva, IVA
+            CodigoProducto, Nombre, PrecioSinIva, IVA
           </code>
-          . Si el <code className="rounded bg-slate-100 px-1 text-xs">Proveedor</code> +{" "}
-          <code className="rounded bg-slate-100 px-1 text-xs">CodigoProveedor</code> ya
-          existen, se actualiza el precio. Si no existen, se crea un producto nuevo (en
-          ese caso la <code className="rounded bg-slate-100 px-1 text-xs">Marca</code> es
-          obligatoria).
+          . Si el <code className="rounded bg-slate-100 px-1 text-xs">CodigoProducto</code>{" "}
+          ya existe para este proveedor, se actualiza el precio. Si no existe, se crea
+          un producto nuevo con la marca seleccionada.
         </p>
         <input
           type="file"
           accept=".xlsx,.xls"
           onChange={handleArchivo}
-          disabled={cargando}
-          className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-800"
+          disabled={cargando || !puedeSubirArchivo}
+          className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-700 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-800 disabled:opacity-50"
         />
+        {!puedeSubirArchivo && (
+          <p className="mt-2 text-xs text-amber-600">
+            Elegí un proveedor y una marca antes de subir el archivo.
+          </p>
+        )}
         {cargando && <p className="mt-2 text-sm text-slate-500">Leyendo archivo...</p>}
       </div>
 
@@ -142,9 +208,7 @@ export default function ImportarForm() {
                 <tr>
                   <th className="px-3 py-2 font-medium">Fila</th>
                   <th className="px-3 py-2 font-medium">Acción</th>
-                  <th className="px-3 py-2 font-medium">Proveedor</th>
-                  <th className="px-3 py-2 font-medium">Marca</th>
-                  <th className="px-3 py-2 font-medium">Código</th>
+                  <th className="px-3 py-2 font-medium">Código Producto</th>
                   <th className="px-3 py-2 font-medium">Nombre</th>
                   <th className="px-3 py-2 text-right font-medium">Precio S/IVA</th>
                   <th className="px-3 py-2 text-right font-medium">IVA</th>
@@ -168,8 +232,6 @@ export default function ImportarForm() {
                         {fila.accion}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{fila.proveedor}</td>
-                    <td className="px-3 py-2 text-slate-700">{fila.marca}</td>
                     <td className="px-3 py-2 text-slate-700">{fila.codigoProveedor}</td>
                     <td className="px-3 py-2 text-slate-700">{fila.nombre}</td>
                     <td className="px-3 py-2 text-right text-slate-700">
