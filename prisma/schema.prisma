@@ -44,8 +44,18 @@ model Usuario {
 }
 
 // ---------------------------------------------------------
-// Proveedores y Productos
+// Marcas y Proveedores y Productos
 // ---------------------------------------------------------
+
+model Marca {
+  id            String      @id @default(cuid())
+  nombre        String      @unique
+  activo        Boolean     @default(true)
+  proveedores   Proveedor[] @relation("MarcaProveedor")
+  productos     Producto[]
+  creadoEn      DateTime    @default(now())
+  actualizadoEn DateTime    @updatedAt
+}
 
 model Proveedor {
   id            String    @id @default(cuid())
@@ -54,24 +64,31 @@ model Proveedor {
   telefono      String?
   email         String?
   activo        Boolean   @default(true)
+  marcas        Marca[]   @relation("MarcaProveedor")
   productos     Producto[]
   creadoEn      DateTime  @default(now())
   actualizadoEn DateTime  @updatedAt
 }
 
 model Producto {
-  id            String       @id @default(cuid())
-  nombre        String
-  descripcion   String?
-  fotoUrl       String?      // URL de la foto del producto (storage externo)
-  precio        Decimal      @db.Decimal(10, 2)
-  stock         Int          @default(0)
-  activo        Boolean      @default(true)
-  proveedorId   String
-  proveedor     Proveedor    @relation(fields: [proveedorId], references: [id])
-  itemsPedido   PedidoItem[]
-  creadoEn      DateTime     @default(now())
-  actualizadoEn DateTime     @updatedAt
+  id                  String       @id @default(cuid())
+  nombre              String
+  descripcion         String?
+  fotoUrl             String?      // URL de la foto del producto (storage externo)
+  codigoProveedor     String?      // código alfanumérico que usa el proveedor para este producto
+  precioSinIva        Decimal      @db.Decimal(10, 2)
+  iva                 Decimal      @db.Decimal(5, 2) @default(21) // porcentaje, ej: 21.00
+  precioFinal         Decimal      @db.Decimal(10, 2) // calculado: precioSinIva * (1 + iva/100)
+  precioActualizadoEn DateTime?    // se actualiza solo cuando cambia precioSinIva o iva
+  stock               Int          @default(0)
+  activo              Boolean      @default(true)
+  proveedorId         String
+  proveedor           Proveedor    @relation(fields: [proveedorId], references: [id])
+  marcaId             String
+  marca               Marca        @relation(fields: [marcaId], references: [id])
+  itemsPedido         PedidoItem[]
+  creadoEn            DateTime     @default(now())
+  actualizadoEn       DateTime     @updatedAt
 }
 
 // ---------------------------------------------------------

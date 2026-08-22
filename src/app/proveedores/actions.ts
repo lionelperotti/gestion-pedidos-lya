@@ -38,6 +38,7 @@ export async function actualizarProveedor(proveedorId: string, formData: FormDat
   const telefono = String(formData.get("telefono") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const activo = formData.get("activo") === "on";
+  const marcaIds = formData.getAll("marcaIds").map(String);
 
   if (!nombre) {
     throw new Error("El nombre del proveedor es obligatorio.");
@@ -51,6 +52,7 @@ export async function actualizarProveedor(proveedorId: string, formData: FormDat
       telefono: telefono || null,
       email: email || null,
       activo,
+      marcas: { set: marcaIds.map((id) => ({ id })) },
     },
   });
 

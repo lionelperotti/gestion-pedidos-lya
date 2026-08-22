@@ -12,12 +12,16 @@ export default async function EditarProveedorPage({
   await requireAdmin();
   const { id } = await params;
 
-  const proveedor = await prisma.proveedor.findUnique({ where: { id } });
+  const [proveedor, marcas] = await Promise.all([
+    prisma.proveedor.findUnique({ where: { id }, include: { marcas: true } }),
+    prisma.marca.findMany({ orderBy: { nombre: "asc" } }),
+  ]);
 
   if (!proveedor) {
     notFound();
   }
 
+  const marcaIdsSeleccionadas = new Set(proveedor.marcas.map((m) => m.id));
   const actualizarConId = actualizarProveedor.bind(null, proveedor.id);
 
   return (
@@ -73,6 +77,28 @@ export default async function EditarProveedorPage({
               defaultValue={proveedor.email ?? ""}
               className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Marcas relacionadas
+            </label>
+            <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-300 p-3">
+              {marcas.map((marca) => (
+                <label key={marca.id} className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="marcaIds"
+                    value={marca.id}
+                    defaultChecked={marcaIdsSeleccionadas.has(marca.id)}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
+                  />
+                  {marca.nombre}
+                </label>
+              ))}
+              {marcas.length === 0 && (
+                <p className="text-sm text-slate-500">No hay marcas cargadas todavía.</p>
+              )}
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input

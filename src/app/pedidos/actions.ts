@@ -41,7 +41,7 @@ export async function crearPedido(clienteId: string, items: ItemCarrito[]) {
           return {
             productoId: item.productoId,
             cantidad: item.cantidad,
-            precioUnitario: producto.precio,
+            precioUnitario: producto.precioFinal,
           };
         }),
       },

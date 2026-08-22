@@ -27,7 +27,7 @@ export default async function NuevoPedidoPage() {
     id: p.id,
     nombre: p.nombre,
     fotoUrl: p.fotoUrl,
-    precio: Number(p.precio),
+    precio: Number(p.precioFinal),
     proveedorNombre: p.proveedor.nombre,
   }));
 
