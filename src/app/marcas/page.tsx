@@ -84,6 +84,9 @@ export default async function MarcasPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Total: {marcas.length} marca{marcas.length !== 1 ? "s" : ""}
+        </p>
       </div>
     </main>
   );

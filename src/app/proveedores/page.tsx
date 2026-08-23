@@ -86,6 +86,9 @@ export default async function ProveedoresPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Total: {proveedores.length} proveedor{proveedores.length !== 1 ? "es" : ""}
+        </p>
       </div>
     </main>
   );

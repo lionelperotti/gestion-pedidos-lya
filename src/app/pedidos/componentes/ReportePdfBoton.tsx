@@ -62,7 +62,22 @@ export default function ReportePdfBoton() {
         doc.setFont("helvetica", "bold");
         doc.text(cliente, 14, y);
         doc.setFont("helvetica", "normal");
-        y += 6;
+        y += 5;
+
+        const primerPedido = pedidosCliente[0];
+        doc.setFontSize(9);
+        doc.setTextColor(80);
+        const datosCliente = [
+          primerPedido.clienteCuit ? `CUIT: ${primerPedido.clienteCuit}` : null,
+          primerPedido.clienteDireccion ? `Domicilio: ${primerPedido.clienteDireccion}` : null,
+        ]
+          .filter(Boolean)
+          .join("  ·  ");
+        if (datosCliente) {
+          doc.text(datosCliente, 14, y);
+          y += 5;
+        }
+        doc.setTextColor(0);
 
         for (const pedido of pedidosCliente) {
           const totalPedido = pedido.items.reduce((acc, item) => acc + item.subtotal, 0);

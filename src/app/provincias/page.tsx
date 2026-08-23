@@ -66,6 +66,9 @@ export default async function ProvinciasPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Total: {provincias.length} provincia{provincias.length !== 1 ? "s" : ""}
+        </p>
       </div>
     </main>
   );

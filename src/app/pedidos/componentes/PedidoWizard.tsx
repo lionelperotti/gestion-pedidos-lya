@@ -381,7 +381,8 @@ export default function PedidoWizard({
 
       <div className="p-4">
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
                 <th className="px-3 py-2 font-medium">Producto</th>
@@ -448,6 +449,7 @@ export default function PedidoWizard({
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
 
         <div className="mt-6 space-y-5">

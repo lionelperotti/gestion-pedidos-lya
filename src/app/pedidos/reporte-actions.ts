@@ -28,6 +28,7 @@ export async function obtenerPedidosPendientesParaReporte() {
     id: pedido.id,
     numero: pedido.numero,
     cliente: pedido.cliente.nombre,
+    clienteCuit: pedido.cliente.cuit,
     clienteTelefono: pedido.cliente.telefono,
     clienteDireccion: pedido.cliente.direccion,
     vendedor: pedido.vendedor.nombre,

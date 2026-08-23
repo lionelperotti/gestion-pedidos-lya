@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 
 export interface UsuarioSesion {
@@ -10,6 +11,7 @@ export interface UsuarioSesion {
   email: string;
   perfil: string | null; // null mientras está PENDIENTE de autorización
   estado: "PENDIENTE" | "ACTIVO";
+  sessionId: string; // se compara contra la base para detectar sesiones invalidadas por un login nuevo
 }
 
 export const authOptions: NextAuthOptions = {
@@ -35,8 +37,15 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
         });
 
-        // Los usuarios que solo entran con Google no tienen passwordHash
-        if (!usuario || !usuario.activo || !usuario.passwordHash) {
+        // Los usuarios que solo entran con Google no tienen passwordHash.
+        // También bloqueamos si la cuenta está deshabilitada o si todavía
+        // no confirmó el email (registro manual pendiente de verificación).
+        if (
+          !usuario ||
+          !usuario.activo ||
+          !usuario.passwordHash ||
+          !usuario.emailVerificado
+        ) {
           return null;
         }
 
@@ -85,6 +94,10 @@ export const authOptions: NextAuthOptions = {
               estado: "PENDIENTE",
             },
           });
+        } else if (!existente.activo) {
+          // Cuenta deshabilitada por un Administrador: no se permite el login,
+          // ni siquiera por Google.
+          return false;
         }
       }
       return true;
@@ -100,9 +113,18 @@ export const authOptions: NextAuthOptions = {
         });
         const t = token as Record<string, unknown>;
         if (dbUsuario) {
+          // Nuevo login: generamos un sessionId nuevo y lo guardamos en la base.
+          // Cualquier otra sesión activa con un sessionId distinto queda invalidada.
+          const nuevoSessionId = randomUUID();
+          await prisma.usuario.update({
+            where: { id: dbUsuario.id },
+            data: { sessionId: nuevoSessionId },
+          });
+
           t.id = dbUsuario.id;
           t.perfil = dbUsuario.perfil?.nombre ?? null;
           t.estado = dbUsuario.estado;
+          t.sessionId = nuevoSessionId;
         }
       }
       return token;
@@ -114,6 +136,7 @@ export const authOptions: NextAuthOptions = {
         usuarioSesion.id = t.id as string;
         usuarioSesion.perfil = (t.perfil as string | null) ?? null;
         usuarioSesion.estado = t.estado as "PENDIENTE" | "ACTIVO";
+        usuarioSesion.sessionId = t.sessionId as string;
       }
       return session;
     },

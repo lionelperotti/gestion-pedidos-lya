@@ -66,6 +66,9 @@ export default async function LocalidadesPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Total: {localidades.length} localidad{localidades.length !== 1 ? "es" : ""}
+        </p>
       </div>
     </main>
   );

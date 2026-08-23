@@ -1,5 +1,7 @@
+import Link from "next/link";
 import LoginForm from "@/components/LoginForm";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
+import AppFooter from "@/components/AppFooter";
 
 export default function LoginPage() {
   return (
@@ -20,7 +22,14 @@ export default function LoginPage() {
           <div className="h-px flex-1 bg-slate-200" />
         </div>
         <GoogleLoginButton />
+        <p className="mt-5 text-center text-sm text-slate-600">
+          ¿No tenés cuenta?{" "}
+          <Link href="/registro" className="text-blue-700 hover:underline">
+            Registrate
+          </Link>
+        </p>
       </div>
+      <AppFooter />
     </main>
   );
 }

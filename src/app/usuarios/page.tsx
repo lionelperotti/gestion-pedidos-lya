@@ -144,6 +144,9 @@ export default async function UsuariosPage() {
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Total: {usuarios.length} usuario{usuarios.length !== 1 ? "s" : ""}
+        </p>
       </div>
     </main>
   );

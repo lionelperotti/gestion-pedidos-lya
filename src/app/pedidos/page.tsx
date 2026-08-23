@@ -31,6 +31,18 @@ export default async function PedidosPage({
     },
   });
 
+  const totalGeneral = pedidos.reduce(
+    (acc, pedido) =>
+      acc +
+      pedido.items.reduce(
+        (accItem, item) =>
+          accItem +
+          Number(item.precioUnitario) * item.cantidad * (1 - Number(item.descuento) / 100),
+        0
+      ),
+    0
+  );
+
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white px-6 py-4">
@@ -127,6 +139,16 @@ export default async function PedidosPage({
             </p>
           )}
         </div>
+        {pedidos.length > 0 && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
+            <span className="text-slate-600">
+              Total: {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}
+            </span>
+            <span className="font-semibold text-blue-700">
+              ${totalGeneral.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
       </div>
     </main>
   );

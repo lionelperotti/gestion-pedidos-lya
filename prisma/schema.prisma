@@ -35,6 +35,10 @@ model Usuario {
   passwordHash  String?   // opcional: usuarios que solo entran con Google no tienen contraseña propia
   activo        Boolean   @default(true)
   estado        EstadoUsuario @default(ACTIVO)
+  sessionId     String?   // identifica la sesión activa más reciente; un login nuevo invalida las anteriores
+  emailVerificado Boolean @default(true) // false solo para cuentas creadas por registro manual, hasta que confirman el link
+  tokenVerificacion String? @unique
+  tokenVerificacionExpira DateTime?
   perfilId      String?   // opcional: nulo mientras el usuario está PENDIENTE de autorización
   perfil        Perfil?   @relation(fields: [perfilId], references: [id])
   clientes      Cliente[] // Clientes asociados a este usuario cuando su perfil es "Vendedor"

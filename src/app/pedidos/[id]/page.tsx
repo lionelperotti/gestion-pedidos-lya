@@ -71,11 +71,12 @@ export default async function DetallePedidoPage({
         <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Cliente</p>
           <p className="font-medium text-slate-900">{pedido.cliente.nombre}</p>
+          <p className="text-sm text-slate-600">CUIT: {pedido.cliente.cuit}</p>
           {pedido.cliente.telefono && (
             <p className="text-sm text-slate-600">{pedido.cliente.telefono}</p>
           )}
           {pedido.cliente.direccion && (
-            <p className="text-sm text-slate-600">{pedido.cliente.direccion}</p>
+            <p className="text-sm text-slate-600">Domicilio: {pedido.cliente.direccion}</p>
           )}
 
           <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-sm">
@@ -118,7 +119,8 @@ export default async function DetallePedidoPage({
         </div>
 
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Producto</th>
@@ -166,6 +168,7 @@ export default async function DetallePedidoPage({
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       </div>
     </main>

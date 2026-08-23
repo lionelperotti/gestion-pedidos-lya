@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUsuario } from "@/lib/session";
 import CerrarSesionBoton from "@/components/CerrarSesionBoton";
+import AppFooter from "@/components/AppFooter";
 import type { UsuarioSesion } from "@/lib/auth";
 
 export default async function Home() {
@@ -101,6 +102,7 @@ export default async function Home() {
           )}
         </div>
       </div>
+      <AppFooter />
     </main>
   );
 }
