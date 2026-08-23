@@ -19,7 +19,9 @@
     "react-dom": "19.2.8",
     "next-auth": "^4.24.11",
     "bcryptjs": "^2.4.3",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

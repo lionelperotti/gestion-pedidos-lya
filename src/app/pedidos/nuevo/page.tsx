@@ -3,23 +3,27 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
-import CartForm from "./CartForm";
+import PedidoWizard from "../componentes/PedidoWizard";
 
 export default async function NuevoPedidoPage() {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) redirect("/login");
   const usuario = sesionUsuario as unknown as UsuarioSesion;
 
-  const [clientes, productosDb] = await Promise.all([
+  const [clientes, marcas, productosDb] = await Promise.all([
     prisma.cliente.findMany({
       where: { vendedorId: usuario.id },
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true },
+    }),
+    prisma.marca.findMany({
+      where: { activo: true },
       orderBy: { nombre: "asc" },
       select: { id: true, nombre: true },
     }),
     prisma.producto.findMany({
       where: { activo: true },
       orderBy: { nombre: "asc" },
-      include: { proveedor: true },
     }),
   ]);
 
@@ -28,7 +32,7 @@ export default async function NuevoPedidoPage() {
     nombre: p.nombre,
     fotoUrl: p.fotoUrl,
     precio: Number(p.precioFinal),
-    proveedorNombre: p.proveedor.nombre,
+    marcaId: p.marcaId,
   }));
 
   return (
@@ -49,7 +53,9 @@ export default async function NuevoPedidoPage() {
         )}
       </header>
 
-      <CartForm clientes={clientes} productos={productos} />
+      {clientes.length > 0 && (
+        <PedidoWizard clientes={clientes} marcas={marcas} productos={productos} modo="crear" />
+      )}
     </main>
   );
 }

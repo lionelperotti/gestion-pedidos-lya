@@ -117,6 +117,11 @@ enum EstadoPedido {
   EXPORTADO // ya se generó el PDF y se considera enviado a la distribuidora
 }
 
+enum ModalidadPago {
+  CONTADO
+  CUENTA_CORRIENTE
+}
+
 model Pedido {
   id            String        @id @default(cuid())
   numero        Int           @default(autoincrement())
@@ -126,17 +131,21 @@ model Pedido {
   vendedorId    String
   vendedor      Usuario       @relation(fields: [vendedorId], references: [id])
   items         PedidoItem[]
+  conFactura    Boolean       @default(false)
+  modalidadPago ModalidadPago @default(CONTADO)
+  observaciones String?       @db.Text
   exportadoEn   DateTime?
   creadoEn      DateTime      @default(now())
   actualizadoEn DateTime      @updatedAt
 }
 
 model PedidoItem {
-  id          String   @id @default(cuid())
-  pedidoId    String
-  pedido      Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  productoId  String
-  producto    Producto @relation(fields: [productoId], references: [id])
-  cantidad    Int
-  precioUnitario Decimal @db.Decimal(10, 2) // se copia el precio al momento del pedido
+  id             String   @id @default(cuid())
+  pedidoId       String
+  pedido         Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  productoId     String
+  producto       Producto @relation(fields: [productoId], references: [id])
+  cantidad       Int
+  precioUnitario Decimal  @db.Decimal(10, 2) // se copia el precio al momento del pedido
+  descuento      Decimal  @default(0) @db.Decimal(5, 2) // porcentaje, ej: 7.00
 }

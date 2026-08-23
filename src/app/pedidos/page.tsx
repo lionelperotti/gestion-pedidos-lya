@@ -3,15 +3,26 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
+import ReportePdfBoton from "./componentes/ReportePdfBoton";
 
-export default async function PedidosPage() {
+export default async function PedidosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ estado?: string }>;
+}) {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) redirect("/login");
   const usuario = sesionUsuario as unknown as UsuarioSesion;
   const esAdmin = usuario.perfil === "Administrador";
 
+  const { estado } = await searchParams;
+  const vista = estado === "enviados" ? "enviados" : "pendientes";
+
   const pedidos = await prisma.pedido.findMany({
-    where: esAdmin ? {} : { vendedorId: usuario.id },
+    where: {
+      estado: vista === "pendientes" ? "PENDIENTE" : "EXPORTADO",
+      ...(esAdmin ? {} : { vendedorId: usuario.id }),
+    },
     orderBy: { creadoEn: "desc" },
     include: {
       cliente: true,
@@ -22,26 +33,58 @@ export default async function PedidosPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-        <div>
-          <Link href="/" className="text-sm text-blue-700 hover:underline">
-            ← Volver
+      <header className="border-b border-slate-200 bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Link href="/" className="text-sm text-blue-700 hover:underline">
+              ← Volver
+            </Link>
+            <h1 className="text-lg font-bold text-slate-900">Pedidos</h1>
+          </div>
+          <Link
+            href="/pedidos/nuevo"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          >
+            + Nuevo pedido
           </Link>
-          <h1 className="text-lg font-bold text-slate-900">Pedidos</h1>
         </div>
-        <Link
-          href="/pedidos/nuevo"
-          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-        >
-          + Nuevo pedido
-        </Link>
+
+        <div className="mt-4 flex items-center justify-between">
+          <div className="flex gap-2">
+            <Link
+              href="/pedidos?estado=pendientes"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                vista === "pendientes"
+                  ? "bg-blue-700 text-white"
+                  : "border border-slate-300 text-slate-700"
+              }`}
+            >
+              Pendientes
+            </Link>
+            <Link
+              href="/pedidos?estado=enviados"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                vista === "enviados"
+                  ? "bg-blue-700 text-white"
+                  : "border border-slate-300 text-slate-700"
+              }`}
+            >
+              Enviados
+            </Link>
+          </div>
+          {vista === "pendientes" && <ReportePdfBoton />}
+        </div>
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
         <div className="space-y-3">
           {pedidos.map((pedido) => {
             const total = pedido.items.reduce(
-              (acc, item) => acc + Number(item.precioUnitario) * item.cantidad,
+              (acc, item) =>
+                acc +
+                Number(item.precioUnitario) *
+                  item.cantidad *
+                  (1 - Number(item.descuento) / 100),
               0
             );
             return (
@@ -63,7 +106,7 @@ export default async function PedidosPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-blue-700">
-                    ${total.toLocaleString("es-AR")}
+                    ${total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                   </p>
                   <span
                     className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -72,7 +115,7 @@ export default async function PedidosPage() {
                         : "bg-amber-50 text-amber-700"
                     }`}
                   >
-                    {pedido.estado === "EXPORTADO" ? "Exportado" : "Pendiente"}
+                    {pedido.estado === "EXPORTADO" ? "Enviado" : "Pendiente"}
                   </span>
                 </div>
               </Link>
@@ -80,7 +123,7 @@ export default async function PedidosPage() {
           })}
           {pedidos.length === 0 && (
             <p className="py-12 text-center text-slate-500">
-              Todavía no hay pedidos cargados.
+              No hay pedidos {vista === "pendientes" ? "pendientes" : "enviados"}.
             </p>
           )}
         </div>
