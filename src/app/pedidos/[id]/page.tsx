@@ -88,13 +88,23 @@ export default async function DetallePedidoPage({
               <p className="text-slate-500">Estado</p>
               <span
                 className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  pedido.estado === "EXPORTADO"
+                  pedido.estado === "EN_LOTE"
                     ? "bg-green-50 text-green-700"
                     : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {pedido.estado === "EXPORTADO" ? "Enviado" : "Pendiente"}
+                {pedido.estado === "EN_LOTE" ? "En lote" : "Pendiente"}
               </span>
+              {pedido.loteId && (
+                <p className="mt-1">
+                  <Link
+                    href={`/lotes/${pedido.loteId}`}
+                    className="text-xs text-blue-700 hover:underline"
+                  >
+                    Ver lote →
+                  </Link>
+                </p>
+              )}
             </div>
             <div>
               <p className="text-slate-500">Facturación</p>

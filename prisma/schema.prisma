@@ -43,6 +43,7 @@ model Usuario {
   perfil        Perfil?   @relation(fields: [perfilId], references: [id])
   clientes      Cliente[] // Clientes asociados a este usuario cuando su perfil es "Vendedor"
   pedidos       Pedido[]  // Pedidos cargados por este usuario cuando su perfil es "Vendedor"
+  lotes         Lote[]    // Lotes armados por este usuario
   creadoEn      DateTime  @default(now())
   actualizadoEn DateTime  @updatedAt
 }
@@ -157,12 +158,28 @@ model Cliente {
 
 enum EstadoPedido {
   PENDIENTE
-  EXPORTADO // ya se generó el PDF y se considera enviado a la distribuidora
+  EN_LOTE // ya pertenece a un Lote (armado por el vendedor para enviar a la distribuidora)
 }
 
 enum ModalidadPago {
   CONTADO
   CUENTA_CORRIENTE
+}
+
+enum EstadoLote {
+  ABIERTO // se pueden agregar/sacar pedidos y volver a descargar el PDF
+  ENVIADO // ya se marcó como enviado, queda de solo lectura
+}
+
+model Lote {
+  id         String     @id @default(cuid())
+  numero     Int        @default(autoincrement())
+  estado     EstadoLote @default(ABIERTO)
+  vendedorId String
+  vendedor   Usuario    @relation(fields: [vendedorId], references: [id])
+  pedidos    Pedido[]
+  creadoEn   DateTime   @default(now())
+  enviadoEn  DateTime?
 }
 
 model Pedido {
@@ -177,7 +194,8 @@ model Pedido {
   conFactura    Boolean       @default(false)
   modalidadPago ModalidadPago @default(CONTADO)
   observaciones String?       @db.Text
-  exportadoEn   DateTime?
+  loteId        String?
+  lote          Lote?         @relation(fields: [loteId], references: [id])
   creadoEn      DateTime      @default(now())
   actualizadoEn DateTime      @updatedAt
 }

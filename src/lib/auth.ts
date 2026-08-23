@@ -17,6 +17,8 @@ export interface UsuarioSesion {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
+    maxAge: 60 * 60, // 1 hora: si no hay actividad en este lapso, la sesión expira sola
+    updateAge: 5 * 60, // cada 5 minutos de uso activo, se extiende la ventana de 1 hora
   },
   pages: {
     signIn: "/login",

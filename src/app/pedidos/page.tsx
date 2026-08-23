@@ -3,45 +3,43 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
-import ReportePdfBoton from "./componentes/ReportePdfBoton";
+import SeleccionPedidosPendientes from "./componentes/SeleccionPedidosPendientes";
 
-export default async function PedidosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ estado?: string }>;
-}) {
+export default async function PedidosPage() {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) redirect("/login");
   const usuario = sesionUsuario as unknown as UsuarioSesion;
   const esAdmin = usuario.perfil === "Administrador";
 
-  const { estado } = await searchParams;
-  const vista = estado === "enviados" ? "enviados" : "pendientes";
+  const [pedidos, loteAbierto] = await Promise.all([
+    prisma.pedido.findMany({
+      where: {
+        estado: "PENDIENTE",
+        ...(esAdmin ? {} : { vendedorId: usuario.id }),
+      },
+      orderBy: { creadoEn: "desc" },
+      include: { cliente: true, vendedor: true, items: true },
+    }),
+    prisma.lote.findFirst({
+      where: { vendedorId: usuario.id, estado: "ABIERTO" },
+      include: { _count: { select: { pedidos: true } } },
+    }),
+  ]);
 
-  const pedidos = await prisma.pedido.findMany({
-    where: {
-      estado: vista === "pendientes" ? "PENDIENTE" : "EXPORTADO",
-      ...(esAdmin ? {} : { vendedorId: usuario.id }),
-    },
-    orderBy: { creadoEn: "desc" },
-    include: {
-      cliente: true,
-      vendedor: true,
-      items: true,
-    },
-  });
-
-  const totalGeneral = pedidos.reduce(
-    (acc, pedido) =>
-      acc +
-      pedido.items.reduce(
-        (accItem, item) =>
-          accItem +
-          Number(item.precioUnitario) * item.cantidad * (1 - Number(item.descuento) / 100),
-        0
-      ),
-    0
-  );
+  const pedidosResumen = pedidos.map((pedido) => ({
+    id: pedido.id,
+    numero: pedido.numero,
+    clienteNombre: pedido.cliente.nombre,
+    vendedorNombre: pedido.vendedor.nombre,
+    cantidadItems: pedido.items.length,
+    total: pedido.items.reduce(
+      (acc, item) =>
+        acc +
+        Number(item.precioUnitario) * item.cantidad * (1 - Number(item.descuento) / 100),
+      0
+    ),
+    fecha: new Date(pedido.creadoEn).toLocaleDateString("es-AR"),
+  }));
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -51,104 +49,49 @@ export default async function PedidosPage({
             <Link href="/" className="text-sm text-blue-700 hover:underline">
               ← Volver
             </Link>
-            <h1 className="text-lg font-bold text-slate-900">Pedidos</h1>
+            <h1 className="text-lg font-bold text-slate-900">Pedidos pendientes</h1>
           </div>
-          <Link
-            href="/pedidos/nuevo"
-            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-          >
-            + Nuevo pedido
-          </Link>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between">
           <div className="flex gap-2">
             <Link
-              href="/pedidos?estado=pendientes"
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                vista === "pendientes"
-                  ? "bg-blue-700 text-white"
-                  : "border border-slate-300 text-slate-700"
-              }`}
+              href="/lotes"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              Pendientes
+              Ver lotes
             </Link>
             <Link
-              href="/pedidos?estado=enviados"
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                vista === "enviados"
-                  ? "bg-blue-700 text-white"
-                  : "border border-slate-300 text-slate-700"
-              }`}
+              href="/pedidos/nuevo"
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
             >
-              Enviados
+              + Nuevo pedido
             </Link>
           </div>
-          {vista === "pendientes" && <ReportePdfBoton />}
+        </div>
+
+        <div className="mt-3">
+          {loteAbierto ? (
+            <Link
+              href={`/lotes/${loteAbierto.id}`}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 hover:bg-amber-100"
+            >
+              📦 Lote abierto: <span className="font-semibold">#{loteAbierto.numero}</span> ·
+              creado el {new Date(loteAbierto.creadoEn).toLocaleDateString("es-AR")} ·{" "}
+              {loteAbierto._count.pedidos} pedido
+              {loteAbierto._count.pedidos !== 1 ? "s" : ""}
+            </Link>
+          ) : (
+            <p className="text-sm text-slate-500">
+              No tenés ningún lote abierto todavía. Seleccioná pedidos abajo para crear uno.
+            </p>
+          )}
         </div>
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        <div className="space-y-3">
-          {pedidos.map((pedido) => {
-            const total = pedido.items.reduce(
-              (acc, item) =>
-                acc +
-                Number(item.precioUnitario) *
-                  item.cantidad *
-                  (1 - Number(item.descuento) / 100),
-              0
-            );
-            return (
-              <Link
-                key={pedido.id}
-                href={`/pedidos/${pedido.id}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div>
-                  <p className="font-medium text-slate-900">
-                    Pedido #{pedido.numero} · {pedido.cliente.nombre}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {pedido.items.length} producto{pedido.items.length !== 1 ? "s" : ""}
-                    {esAdmin && ` · ${pedido.vendedor.nombre}`}
-                    {" · "}
-                    {new Date(pedido.creadoEn).toLocaleDateString("es-AR")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-blue-700">
-                    ${total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
-                  </p>
-                  <span
-                    className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      pedido.estado === "EXPORTADO"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-amber-50 text-amber-700"
-                    }`}
-                  >
-                    {pedido.estado === "EXPORTADO" ? "Enviado" : "Pendiente"}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-          {pedidos.length === 0 && (
-            <p className="py-12 text-center text-slate-500">
-              No hay pedidos {vista === "pendientes" ? "pendientes" : "enviados"}.
-            </p>
-          )}
-        </div>
-        {pedidos.length > 0 && (
-          <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
-            <span className="text-slate-600">
-              Total: {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}
-            </span>
-            <span className="font-semibold text-blue-700">
-              ${totalGeneral.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        )}
+        <SeleccionPedidosPendientes
+          pedidos={pedidosResumen}
+          esAdmin={esAdmin}
+          hayLoteAbierto={Boolean(loteAbierto)}
+        />
       </div>
     </main>
   );

@@ -74,6 +74,7 @@ export default function PedidoWizard({
   const [observaciones, setObservaciones] = useState(datosPedidoIniciales?.observaciones ?? "");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [productoAmpliadoIndex, setProductoAmpliadoIndex] = useState<number | null>(null);
 
   const clientesFiltrados = useMemo(() => {
     const texto = busquedaCliente.trim().toLowerCase();
@@ -90,6 +91,18 @@ export default function PedidoWizard({
     () => Object.values(items).filter((i) => i.cantidad > 0),
     [items]
   );
+
+  // Cuántos productos DISTINTOS (no unidades) hay cargados de cada marca,
+  // para mostrar el numerito en la tarjeta de cada marca.
+  const cantidadPorMarca = useMemo(() => {
+    const mapa: Record<string, number> = {};
+    for (const item of itemsCargados) {
+      const producto = productos.find((p) => p.id === item.productoId);
+      if (!producto) continue;
+      mapa[producto.marcaId] = (mapa[producto.marcaId] ?? 0) + 1;
+    }
+    return mapa;
+  }, [itemsCargados, productos]);
 
   function calcularSubtotal(item: ItemEstado, precio: number) {
     return precio * item.cantidad * (1 - (item.descuento || 0) / 100);
@@ -219,23 +232,36 @@ export default function PedidoWizard({
               setMarcaId("todas");
               setPaso("productos");
             }}
-            className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-8 text-center shadow-sm hover:border-blue-300 hover:bg-blue-50"
+            className="relative flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-8 text-center shadow-sm hover:border-blue-300 hover:bg-blue-50"
           >
+            {itemsCargados.length > 0 && (
+              <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-1.5 text-xs font-bold text-white">
+                {itemsCargados.length}
+              </span>
+            )}
             <span className="font-semibold text-slate-900">Todas las marcas</span>
           </button>
-          {marcas.map((marca) => (
-            <button
-              key={marca.id}
-              type="button"
-              onClick={() => {
-                setMarcaId(marca.id);
-                setPaso("productos");
-              }}
-              className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-8 text-center shadow-sm hover:border-blue-300 hover:bg-blue-50"
-            >
-              <span className="font-semibold text-slate-900">{marca.nombre}</span>
-            </button>
-          ))}
+          {marcas.map((marca) => {
+            const cantidad = cantidadPorMarca[marca.id] ?? 0;
+            return (
+              <button
+                key={marca.id}
+                type="button"
+                onClick={() => {
+                  setMarcaId(marca.id);
+                  setPaso("productos");
+                }}
+                className="relative flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-8 text-center shadow-sm hover:border-blue-300 hover:bg-blue-50"
+              >
+                {cantidad > 0 && (
+                  <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-700 px-1.5 text-xs font-bold text-white">
+                    {cantidad}
+                  </span>
+                )}
+                <span className="font-semibold text-slate-900">{marca.nombre}</span>
+              </button>
+            );
+          })}
         </div>
         {itemsCargados.length > 0 && (
           <button
@@ -278,7 +304,14 @@ export default function PedidoWizard({
                 key={producto.id}
                 className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
               >
-                <div className="relative aspect-square bg-slate-100">
+                <div
+                  className="relative aspect-square cursor-pointer bg-slate-100"
+                  onClick={() =>
+                    setProductoAmpliadoIndex(
+                      productosVisibles.findIndex((p) => p.id === producto.id)
+                    )
+                  }
+                >
                   {producto.fotoUrl ? (
                     <Image
                       src={producto.fotoUrl}
@@ -358,6 +391,98 @@ export default function PedidoWizard({
             Revisar y confirmar
           </button>
         </div>
+
+        {productoAmpliadoIndex !== null && productosVisibles[productoAmpliadoIndex] && (
+          <div className="fixed inset-0 z-50 flex flex-col bg-white">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <span className="text-sm text-slate-500">
+                {productoAmpliadoIndex + 1} de {productosVisibles.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setProductoAmpliadoIndex(null)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            <div className="relative flex-1 bg-slate-100">
+              {productosVisibles[productoAmpliadoIndex].fotoUrl ? (
+                <Image
+                  src={productosVisibles[productoAmpliadoIndex].fotoUrl as string}
+                  alt={productosVisibles[productoAmpliadoIndex].nombre}
+                  fill
+                  className="object-contain"
+                  sizes="100vw"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-slate-400">
+                  Sin foto
+                </div>
+              )}
+
+              {productoAmpliadoIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setProductoAmpliadoIndex((i) => (i !== null ? i - 1 : i))}
+                  className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl font-bold text-slate-700 shadow"
+                  aria-label="Producto anterior"
+                >
+                  ‹
+                </button>
+              )}
+              {productoAmpliadoIndex < productosVisibles.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => setProductoAmpliadoIndex((i) => (i !== null ? i + 1 : i))}
+                  className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-xl font-bold text-slate-700 shadow"
+                  aria-label="Producto siguiente"
+                >
+                  ›
+                </button>
+              )}
+            </div>
+
+            <div className="border-t border-slate-200 px-4 py-4">
+              <p className="text-base font-semibold text-slate-900">
+                {productosVisibles[productoAmpliadoIndex].nombre}
+              </p>
+              <p className="mb-3 text-lg font-bold text-blue-700">
+                ${productosVisibles[productoAmpliadoIndex].precio.toLocaleString("es-AR")}
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => cambiarCantidad(productosVisibles[productoAmpliadoIndex].id, -1)}
+                  disabled={(items[productosVisibles[productoAmpliadoIndex].id]?.cantidad ?? 0) === 0}
+                  className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 text-2xl font-semibold text-slate-700 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={0}
+                  value={items[productosVisibles[productoAmpliadoIndex].id]?.cantidad ?? 0}
+                  onChange={(e) =>
+                    actualizarItem(productosVisibles[productoAmpliadoIndex].id, {
+                      cantidad: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  className="w-20 rounded-lg border border-slate-300 py-2 text-center text-xl font-semibold text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => cambiarCantidad(productosVisibles[productoAmpliadoIndex].id, 1)}
+                  className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-700 text-2xl font-semibold text-white"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
