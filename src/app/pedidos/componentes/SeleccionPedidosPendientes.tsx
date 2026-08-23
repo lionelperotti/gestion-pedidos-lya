@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { crearOAgregarLote } from "../lotes/actions";
+import { crearOAgregarLote } from "../../lotes/actions";
 
 interface PedidoResumen {
   id: string;
