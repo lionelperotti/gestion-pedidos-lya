@@ -156,6 +156,22 @@ export async function copiarPedido(pedidoId: string) {
     throw new Error("No tenés permiso para copiar este pedido.");
   }
 
+  // Traemos el precio ACTUAL de cada producto, no el que tenía el pedido original,
+  // por si el precio cambió desde que se cargó ese pedido.
+  const productos = await prisma.producto.findMany({
+    where: { id: { in: original.items.map((i) => i.productoId) } },
+  });
+
+  const itemsValidos = original.items.filter((item) =>
+    productos.some((p) => p.id === item.productoId)
+  );
+
+  if (itemsValidos.length === 0) {
+    throw new Error(
+      "Ninguno de los productos de ese pedido existe todavía, no se puede copiar."
+    );
+  }
+
   const nuevoPedido = await prisma.pedido.create({
     data: {
       clienteId: original.clienteId,
@@ -164,12 +180,15 @@ export async function copiarPedido(pedidoId: string) {
       modalidadPago: original.modalidadPago,
       observaciones: original.observaciones,
       items: {
-        create: original.items.map((item) => ({
-          productoId: item.productoId,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          descuento: item.descuento,
-        })),
+        create: itemsValidos.map((item) => {
+          const producto = productos.find((p) => p.id === item.productoId)!;
+          return {
+            productoId: item.productoId,
+            cantidad: item.cantidad,
+            precioUnitario: producto.precioFinal, // precio actual, no el histórico
+            descuento: item.descuento,
+          };
+        }),
       },
     },
   });
