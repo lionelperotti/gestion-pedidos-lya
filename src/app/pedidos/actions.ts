@@ -74,7 +74,7 @@ export async function crearPedido(datos: DatosPedido) {
   redirect(`/pedidos/${nuevoPedido.id}`);
 }
 
-export async function actualizarPedido(pedidoId: string, items: ItemCarrito[]) {
+export async function actualizarPedido(pedidoId: string, datos: Omit<DatosPedido, "clienteId">) {
   const usuario = await usuarioActual();
 
   const pedidoActual = await prisma.pedido.findUnique({ where: { id: pedidoId } });
@@ -85,12 +85,15 @@ export async function actualizarPedido(pedidoId: string, items: ItemCarrito[]) {
   if (usuario.perfil !== "Administrador" && pedidoActual.vendedorId !== usuario.id) {
     throw new Error("No tenés permiso para editar este pedido.");
   }
-  if (!items || items.length === 0) {
+  if (!datos.items || datos.items.length === 0) {
     throw new Error("El pedido necesita al menos un producto.");
+  }
+  if (!datos.modalidadPago) {
+    throw new Error("Tenés que indicar la modalidad de pago.");
   }
 
   const productos = await prisma.producto.findMany({
-    where: { id: { in: items.map((i) => i.productoId) } },
+    where: { id: { in: datos.items.map((i) => i.productoId) } },
   });
 
   await prisma.$transaction([
@@ -98,8 +101,11 @@ export async function actualizarPedido(pedidoId: string, items: ItemCarrito[]) {
     prisma.pedido.update({
       where: { id: pedidoId },
       data: {
+        conFactura: datos.conFactura,
+        modalidadPago: datos.modalidadPago,
+        observaciones: datos.observaciones || null,
         items: {
-          create: items.map((item) => {
+          create: datos.items.map((item) => {
             const producto = productos.find((p) => p.id === item.productoId);
             if (!producto) {
               throw new Error("Uno de los productos ya no existe.");
@@ -118,6 +124,24 @@ export async function actualizarPedido(pedidoId: string, items: ItemCarrito[]) {
 
   revalidatePath("/pedidos");
   redirect(`/pedidos/${pedidoId}`);
+}
+
+export async function eliminarPedido(pedidoId: string) {
+  const usuario = await usuarioActual();
+
+  const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId } });
+  if (!pedido) throw new Error("El pedido no existe.");
+  if (pedido.estado !== "PENDIENTE") {
+    throw new Error("Solo se pueden eliminar pedidos pendientes.");
+  }
+  if (usuario.perfil !== "Administrador" && pedido.vendedorId !== usuario.id) {
+    throw new Error("No tenés permiso para eliminar este pedido.");
+  }
+
+  await prisma.pedido.delete({ where: { id: pedidoId } });
+
+  revalidatePath("/pedidos");
+  redirect("/pedidos");
 }
 
 export async function copiarPedido(pedidoId: string) {

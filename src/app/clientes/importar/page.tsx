@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
-import { crearCliente } from "../actions";
-import ClienteForm from "../ClienteForm";
+import ImportarClientesForm from "./ImportarClientesForm";
 
-export default async function NuevoClientePage() {
+export default async function ImportarClientesPage() {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) redirect("/login");
-
-  const provincias = await prisma.provincia.findMany({
-    orderBy: { nombre: "asc" },
-    include: { localidades: { orderBy: { nombre: "asc" } } },
-  });
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -20,11 +13,11 @@ export default async function NuevoClientePage() {
         <Link href="/clientes" className="text-sm text-blue-700 hover:underline">
           ← Volver a Clientes
         </Link>
-        <h1 className="text-lg font-bold text-slate-900">Nuevo cliente</h1>
+        <h1 className="text-lg font-bold text-slate-900">Importar clientes desde Excel</h1>
       </header>
 
-      <div className="mx-auto max-w-md px-6 py-8">
-        <ClienteForm action={crearCliente} provincias={provincias} />
+      <div className="mx-auto max-w-5xl px-6 py-8">
+        <ImportarClientesForm />
       </div>
     </main>
   );

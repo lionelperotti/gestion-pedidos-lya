@@ -38,6 +38,7 @@ export default function PedidoWizard({
   pedidoId,
   clienteInicial,
   itemsIniciales,
+  datosPedidoIniciales,
 }: {
   clientes: Cliente[];
   marcas: Marca[];
@@ -46,6 +47,11 @@ export default function PedidoWizard({
   pedidoId?: string;
   clienteInicial?: Cliente;
   itemsIniciales?: ItemEstado[];
+  datosPedidoIniciales?: {
+    conFactura: boolean;
+    modalidadPago: "CONTADO" | "CUENTA_CORRIENTE";
+    observaciones: string;
+  };
 }) {
   const [paso, setPaso] = useState<Paso>(modo === "editar" ? "marca" : "cliente");
   const [clienteId, setClienteId] = useState(clienteInicial?.id ?? "");
@@ -59,9 +65,13 @@ export default function PedidoWizard({
     }
     return inicial;
   });
-  const [conFactura, setConFactura] = useState<"si" | "no" | "">("");
-  const [modalidadPago, setModalidadPago] = useState<"CONTADO" | "CUENTA_CORRIENTE" | "">("");
-  const [observaciones, setObservaciones] = useState("");
+  const [conFactura, setConFactura] = useState<"si" | "no" | "">(
+    datosPedidoIniciales ? (datosPedidoIniciales.conFactura ? "si" : "no") : ""
+  );
+  const [modalidadPago, setModalidadPago] = useState<"CONTADO" | "CUENTA_CORRIENTE" | "">(
+    datosPedidoIniciales?.modalidadPago ?? ""
+  );
+  const [observaciones, setObservaciones] = useState(datosPedidoIniciales?.observaciones ?? "");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,15 +129,13 @@ export default function PedidoWizard({
       return;
     }
 
-    if (modo === "crear") {
-      if (!conFactura) {
-        setError("Indicá si el pedido es con factura o sin factura.");
-        return;
-      }
-      if (!modalidadPago) {
-        setError("Indicá la modalidad de pago.");
-        return;
-      }
+    if (!conFactura) {
+      setError("Indicá si el pedido es con factura o sin factura.");
+      return;
+    }
+    if (!modalidadPago) {
+      setError("Indicá la modalidad de pago.");
+      return;
     }
 
     setEnviando(true);
@@ -141,7 +149,12 @@ export default function PedidoWizard({
           observaciones,
         });
       } else if (pedidoId) {
-        await actualizarPedido(pedidoId, itemsCargados);
+        await actualizarPedido(pedidoId, {
+          items: itemsCargados,
+          conFactura: conFactura === "si",
+          modalidadPago: modalidadPago as "CONTADO" | "CUENTA_CORRIENTE",
+          observaciones,
+        });
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ocurrió un error al guardar el pedido.");
@@ -437,8 +450,7 @@ export default function PedidoWizard({
           </table>
         </div>
 
-        {modo === "crear" && (
-          <div className="mt-6 space-y-5">
+        <div className="mt-6 space-y-5">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 ¿Con factura o sin factura?
@@ -512,8 +524,7 @@ export default function PedidoWizard({
                 className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white px-4 py-4 shadow-[0_-2px_8px_rgba(0,0,0,0.05)]">

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
 import CopiarPedidoBoton from "../componentes/CopiarPedidoBoton";
+import EliminarPedidoBoton from "../componentes/EliminarPedidoBoton";
 
 export default async function DetallePedidoPage({
   params,
@@ -52,12 +53,15 @@ export default async function DetallePedidoPage({
           </h1>
         </div>
         {esPendiente ? (
-          <Link
-            href={`/pedidos/${pedido.id}/editar`}
-            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-          >
-            Editar
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/pedidos/${pedido.id}/editar`}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+            >
+              Editar
+            </Link>
+            <EliminarPedidoBoton pedidoId={pedido.id} />
+          </div>
         ) : (
           <CopiarPedidoBoton pedidoId={pedido.id} />
         )}

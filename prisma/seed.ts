@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { PROVINCIAS_ARGENTINA } from "./provincias-argentina";
 
 const prisma = new PrismaClient();
 
@@ -45,6 +46,24 @@ async function main() {
   } else {
     console.log(`Usuario administrador ya existía: ${emailAdmin}`);
   }
+
+  // Provincias y localidades de Argentina (carga inicial, no exhaustiva)
+  for (const [nombreProvincia, localidades] of Object.entries(PROVINCIAS_ARGENTINA)) {
+    const provincia = await prisma.provincia.upsert({
+      where: { nombre: nombreProvincia },
+      update: {},
+      create: { nombre: nombreProvincia },
+    });
+
+    await prisma.localidad.createMany({
+      data: localidades.map((nombreLocalidad) => ({
+        nombre: nombreLocalidad,
+        provinciaId: provincia.id,
+      })),
+      skipDuplicates: true,
+    });
+  }
+  console.log("Provincias y localidades cargadas.");
 }
 
 main()

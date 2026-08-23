@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
 import { actualizarCliente } from "../actions";
+import ClienteForm from "../ClienteForm";
 
 export default async function EditarClientePage({
   params,
@@ -15,7 +16,13 @@ export default async function EditarClientePage({
   const usuario = sesionUsuario as unknown as UsuarioSesion;
   const { id } = await params;
 
-  const cliente = await prisma.cliente.findUnique({ where: { id } });
+  const [cliente, provincias] = await Promise.all([
+    prisma.cliente.findUnique({ where: { id } }),
+    prisma.provincia.findMany({
+      orderBy: { nombre: "asc" },
+      include: { localidades: { orderBy: { nombre: "asc" } } },
+    }),
+  ]);
 
   if (!cliente) {
     notFound();
@@ -37,57 +44,21 @@ export default async function EditarClientePage({
       </header>
 
       <div className="mx-auto max-w-md px-6 py-8">
-        <form action={actualizarConId} className="space-y-5">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Nombre
-            </label>
-            <input
-              name="nombre"
-              required
-              defaultValue={cliente.nombre}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Teléfono (opcional)
-            </label>
-            <input
-              name="telefono"
-              type="tel"
-              defaultValue={cliente.telefono ?? ""}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Dirección (opcional)
-            </label>
-            <input
-              name="direccion"
-              defaultValue={cliente.direccion ?? ""}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email (opcional)
-            </label>
-            <input
-              name="email"
-              type="email"
-              defaultValue={cliente.email ?? ""}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-blue-700 px-4 py-3.5 text-base font-semibold text-white hover:bg-blue-800"
-          >
-            Guardar cambios
-          </button>
-        </form>
+        <ClienteForm
+          action={actualizarConId}
+          provincias={provincias}
+          valoresIniciales={{
+            nombre: cliente.nombre,
+            telefono: cliente.telefono ?? "",
+            email: cliente.email ?? "",
+            direccion: cliente.direccion ?? "",
+            codigoCliente: cliente.codigoCliente,
+            cuit: cliente.cuit,
+            categoria: cliente.categoria,
+            provinciaId: cliente.provinciaId ?? "",
+            localidadId: cliente.localidadId ?? "",
+          }}
+        />
       </div>
     </main>
   );

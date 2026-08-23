@@ -92,8 +92,40 @@ model Producto {
 }
 
 // ---------------------------------------------------------
+// Provincias y Localidades
+// ---------------------------------------------------------
+
+model Provincia {
+  id            String      @id @default(cuid())
+  nombre        String      @unique
+  localidades   Localidad[]
+  clientes      Cliente[]   // solo informativo si se necesitara filtrar directo (no se persiste, ver nota abajo)
+  creadoEn      DateTime    @default(now())
+  actualizadoEn DateTime    @updatedAt
+}
+
+model Localidad {
+  id            String    @id @default(cuid())
+  nombre        String
+  provinciaId   String
+  provincia     Provincia @relation(fields: [provinciaId], references: [id])
+  clientes      Cliente[]
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  @@unique([provinciaId, nombre])
+}
+
+// ---------------------------------------------------------
 // Clientes
 // ---------------------------------------------------------
+
+enum CategoriaCliente {
+  RI
+  MO
+  EX
+  CF
+}
 
 model Cliente {
   id            String    @id @default(cuid())
@@ -101,6 +133,13 @@ model Cliente {
   telefono      String?
   email         String?
   direccion     String?
+  codigoCliente String
+  cuit          String    @unique
+  categoria     CategoriaCliente
+  localidadId   String?
+  localidad     Localidad? @relation(fields: [localidadId], references: [id])
+  provinciaId   String?    // redundante a propósito: permite elegir Provincia sin depender de Localidad
+  provincia     Provincia? @relation(fields: [provinciaId], references: [id])
   vendedorId    String
   vendedor      Usuario   @relation(fields: [vendedorId], references: [id])
   pedidos       Pedido[]

@@ -76,6 +76,11 @@ export default async function EditarPedidoPage({
         pedidoId={pedido.id}
         clienteInicial={{ id: pedido.cliente.id, nombre: pedido.cliente.nombre }}
         itemsIniciales={itemsIniciales}
+        datosPedidoIniciales={{
+          conFactura: pedido.conFactura,
+          modalidadPago: pedido.modalidadPago,
+          observaciones: pedido.observaciones ?? "",
+        }}
       />
     </main>
   );

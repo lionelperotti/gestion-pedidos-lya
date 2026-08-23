@@ -25,12 +25,20 @@ export default async function ClientesPage() {
           </Link>
           <h1 className="text-lg font-bold text-slate-900">Clientes</h1>
         </div>
-        <Link
-          href="/clientes/nuevo"
-          className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-        >
-          + Nuevo cliente
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/clientes/importar"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Importar desde Excel
+          </Link>
+          <Link
+            href="/clientes/nuevo"
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+          >
+            + Nuevo cliente
+          </Link>
+        </div>
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
@@ -38,7 +46,10 @@ export default async function ClientesPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
+                <th className="px-4 py-3 font-medium">Código</th>
                 <th className="px-4 py-3 font-medium">Nombre</th>
+                <th className="px-4 py-3 font-medium">CUIT</th>
+                <th className="px-4 py-3 font-medium">Cat.</th>
                 <th className="px-4 py-3 font-medium">Teléfono</th>
                 {esAdmin && <th className="px-4 py-3 font-medium">Vendedor</th>}
                 <th className="px-4 py-3 font-medium">Pedidos</th>
@@ -48,9 +59,12 @@ export default async function ClientesPage() {
             <tbody className="divide-y divide-slate-100">
               {clientes.map((cliente) => (
                 <tr key={cliente.id}>
+                  <td className="px-4 py-3 text-slate-600">{cliente.codigoCliente}</td>
                   <td className="px-4 py-3 font-medium text-slate-900">
                     {cliente.nombre}
                   </td>
+                  <td className="px-4 py-3 text-slate-600">{cliente.cuit}</td>
+                  <td className="px-4 py-3 text-slate-600">{cliente.categoria}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {cliente.telefono || "—"}
                   </td>
@@ -74,7 +88,7 @@ export default async function ClientesPage() {
               ))}
               {clientes.length === 0 && (
                 <tr>
-                  <td colSpan={esAdmin ? 5 : 4} className="px-4 py-6 text-center text-slate-500">
+                  <td colSpan={esAdmin ? 8 : 7} className="px-4 py-6 text-center text-slate-500">
                     Todavía no hay clientes cargados.
                   </td>
                 </tr>

@@ -85,6 +85,18 @@ export default async function Home() {
               >
                 Perfiles
               </Link>
+              <Link
+                href="/provincias"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Provincias
+              </Link>
+              <Link
+                href="/localidades"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Localidades
+              </Link>
             </>
           )}
         </div>
