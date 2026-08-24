@@ -80,8 +80,9 @@ export default function DescargarPdfLoteBoton({ loteId }: { loteId: string }) {
         autoTable(doc, {
           startY: y,
           margin: { left: 14, right: 14 },
-          head: [["Producto", "Cant.", "Precio", "Desc. %", "Subtotal"]],
+          head: [["Código", "Producto", "Cant.", "Precio", "Desc. %", "Subtotal"]],
           body: pedido.items.map((item) => [
+            item.codigo ?? "—",
             item.nombre,
             String(item.cantidad),
             `$${item.precioUnitario.toLocaleString("es-AR")}`,
@@ -90,6 +91,7 @@ export default function DescargarPdfLoteBoton({ loteId }: { loteId: string }) {
           ]),
           foot: [
             [
+              "",
               "",
               "",
               "",

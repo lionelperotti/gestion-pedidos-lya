@@ -46,6 +46,7 @@ export async function obtenerDatosLoteParaPdf(loteId: string) {
       observaciones: pedido.observaciones,
       creadoEn: pedido.creadoEn.toISOString(),
       items: pedido.items.map((item) => ({
+        codigo: item.producto.codigoProveedor,
         nombre: item.producto.nombre,
         cantidad: item.cantidad,
         precioUnitario: Number(item.precioUnitario),

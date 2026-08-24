@@ -80,6 +80,12 @@ export default async function ProductosPorMarcaPage({
                 <p className="mt-1 text-sm font-semibold text-blue-700">
                   ${Number(producto.precioFinal).toLocaleString("es-AR")}
                 </p>
+                {producto.precioActualizadoEn && (
+                  <p className="mt-0.5 text-[11px] text-slate-400">
+                    Precio actualizado:{" "}
+                    {new Date(producto.precioActualizadoEn).toLocaleDateString("es-AR")}
+                  </p>
+                )}
               </div>
             </Link>
           ))}
@@ -87,6 +93,11 @@ export default async function ProductosPorMarcaPage({
         {productos.length === 0 && (
           <p className="py-12 text-center text-slate-500">
             Esta marca todavía no tiene productos cargados.
+          </p>
+        )}
+        {productos.length > 0 && (
+          <p className="mt-3 text-sm text-slate-500">
+            Total: {productos.length} producto{productos.length !== 1 ? "s" : ""}
           </p>
         )}
       </div>

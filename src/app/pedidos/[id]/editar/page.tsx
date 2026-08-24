@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
@@ -60,9 +59,6 @@ export default async function EditarPedidoPage({
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <Link href={`/pedidos/${id}`} className="text-sm text-blue-700 hover:underline">
-          ← Volver al pedido
-        </Link>
         <h1 className="text-lg font-bold text-slate-900">
           Editar pedido #{pedido.numero}
         </h1>

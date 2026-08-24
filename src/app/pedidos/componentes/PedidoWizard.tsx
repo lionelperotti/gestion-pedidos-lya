@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { crearPedido, actualizarPedido } from "../actions";
@@ -181,6 +182,12 @@ export default function PedidoWizard({
   if (paso === "cliente") {
     return (
       <div className="p-4">
+        <Link
+          href="/pedidos"
+          className="mb-4 inline-block text-sm text-blue-700 hover:underline"
+        >
+          ← Volver a Pedidos
+        </Link>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
           Buscar cliente
         </label>
@@ -219,6 +226,14 @@ export default function PedidoWizard({
   if (paso === "marca") {
     return (
       <div className="p-4">
+        {modo === "editar" && pedidoId && (
+          <Link
+            href={`/pedidos/${pedidoId}`}
+            className="mb-4 inline-block text-sm text-blue-700 hover:underline"
+          >
+            ← Volver al pedido
+          </Link>
+        )}
         {clienteNombre && (
           <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
             Cliente: <span className="font-semibold">{clienteNombre}</span>
@@ -347,6 +362,8 @@ export default function PedidoWizard({
                       type="number"
                       min={0}
                       value={cantidad}
+                      onFocus={(e) => e.target.select()}
+                      onClick={(e) => e.currentTarget.select()}
                       onChange={(e) =>
                         actualizarItem(producto.id, {
                           cantidad: Math.max(0, Number(e.target.value) || 0),
@@ -465,6 +482,8 @@ export default function PedidoWizard({
                   type="number"
                   min={0}
                   value={items[productosVisibles[productoAmpliadoIndex].id]?.cantidad ?? 0}
+                  onFocus={(e) => e.target.select()}
+                      onClick={(e) => e.currentTarget.select()}
                   onChange={(e) =>
                     actualizarItem(productosVisibles[productoAmpliadoIndex].id, {
                       cantidad: Math.max(0, Number(e.target.value) || 0),
@@ -530,6 +549,8 @@ export default function PedidoWizard({
                         type="number"
                         min={0}
                         value={item.cantidad}
+                        onFocus={(e) => e.target.select()}
+                      onClick={(e) => e.currentTarget.select()}
                         onChange={(e) =>
                           actualizarItem(item.productoId, {
                             cantidad: Math.max(0, Number(e.target.value) || 0),
@@ -548,6 +569,8 @@ export default function PedidoWizard({
                         max={100}
                         step="0.01"
                         value={item.descuento}
+                        onFocus={(e) => e.target.select()}
+                      onClick={(e) => e.currentTarget.select()}
                         onChange={(e) =>
                           actualizarItem(item.productoId, {
                             descuento: Math.min(100, Math.max(0, Number(e.target.value) || 0)),

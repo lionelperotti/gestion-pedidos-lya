@@ -38,9 +38,6 @@ export default async function NuevoPedidoPage() {
   return (
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <Link href="/pedidos" className="text-sm text-blue-700 hover:underline">
-          ← Volver a Pedidos
-        </Link>
         <h1 className="text-lg font-bold text-slate-900">Nuevo pedido</h1>
         {clientes.length === 0 && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
