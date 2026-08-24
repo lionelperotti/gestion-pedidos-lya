@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { crearPedido, actualizarPedido } from "../actions";
@@ -54,6 +55,7 @@ export default function PedidoWizard({
     observaciones: string;
   };
 }) {
+  const router = useRouter();
   const [paso, setPaso] = useState<Paso>(modo === "editar" ? "marca" : "cliente");
   const [clienteId, setClienteId] = useState(clienteInicial?.id ?? "");
   const [clienteNombre, setClienteNombre] = useState(clienteInicial?.nombre ?? "");
@@ -135,6 +137,15 @@ export default function PedidoWizard({
     setPaso("marca");
   }
 
+  function cancelarCarga() {
+    const confirmado = confirm(
+      "¿Cancelar la carga de este pedido? Se va a perder todo lo que cargaste hasta ahora."
+    );
+    if (confirmado) {
+      router.push("/");
+    }
+  }
+
   async function handleEnviarFinal() {
     setError(null);
 
@@ -183,10 +194,10 @@ export default function PedidoWizard({
     return (
       <div className="p-4">
         <Link
-          href="/pedidos"
+          href="/"
           className="mb-4 inline-block text-sm text-blue-700 hover:underline"
         >
-          ← Volver a Pedidos
+          ← Volver al Menú Principal
         </Link>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
           Buscar cliente
@@ -226,14 +237,25 @@ export default function PedidoWizard({
   if (paso === "marca") {
     return (
       <div className="p-4">
-        {modo === "editar" && pedidoId && (
-          <Link
-            href={`/pedidos/${pedidoId}`}
-            className="mb-4 inline-block text-sm text-blue-700 hover:underline"
+        <div className="mb-4 flex items-center justify-between">
+          {modo === "editar" && pedidoId ? (
+            <Link
+              href={`/pedidos/${pedidoId}`}
+              className="inline-block text-sm text-blue-700 hover:underline"
+            >
+              ← Volver al pedido
+            </Link>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={cancelarCarga}
+            className="text-sm font-medium text-red-600 hover:underline"
           >
-            ← Volver al pedido
-          </Link>
-        )}
+            Cancelar
+          </button>
+        </div>
         {clienteNombre && (
           <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
             Cliente: <span className="font-semibold">{clienteNombre}</span>
@@ -308,6 +330,13 @@ export default function PedidoWizard({
           {clienteNombre && (
             <span className="text-sm text-slate-600">{clienteNombre}</span>
           )}
+          <button
+            type="button"
+            onClick={cancelarCarga}
+            className="text-sm font-medium text-red-600 hover:underline"
+          >
+            Cancelar
+          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
@@ -512,13 +541,22 @@ export default function PedidoWizard({
   return (
     <div className="pb-40">
       <div className="border-b border-slate-200 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setPaso("productos")}
-          className="text-sm text-blue-700 hover:underline"
-        >
-          ← Seguir cargando productos
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setPaso("productos")}
+            className="text-sm text-blue-700 hover:underline"
+          >
+            ← Seguir cargando productos
+          </button>
+          <button
+            type="button"
+            onClick={cancelarCarga}
+            className="text-sm font-medium text-red-600 hover:underline"
+          >
+            Cancelar
+          </button>
+        </div>
         <h1 className="mt-1 text-lg font-bold text-slate-900">Confirmar pedido</h1>
         {clienteNombre && <p className="text-sm text-slate-500">{clienteNombre}</p>}
       </div>
