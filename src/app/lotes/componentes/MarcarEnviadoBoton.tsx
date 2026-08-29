@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { marcarLoteEnviado } from "../actions";
+import PdfPreviewModal from "./PdfPreviewModal";
 
 export default function MarcarEnviadoBoton({ loteId }: { loteId: string }) {
   const router = useRouter();
   const [enviando, setEnviando] = useState(false);
+  const [mostrarModal, setMostrarModal] = useState(false);
 
   async function handleClick() {
     if (
@@ -19,19 +21,25 @@ export default function MarcarEnviadoBoton({ loteId }: { loteId: string }) {
     try {
       await marcarLoteEnviado(loteId);
       router.refresh();
+      setMostrarModal(true);
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={enviando}
-      className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60"
-    >
-      {enviando ? "Marcando..." : "Marcar como enviado"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={enviando}
+        className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60"
+      >
+        {enviando ? "Marcando..." : "Marcar como enviado"}
+      </button>
+      {mostrarModal && (
+        <PdfPreviewModal loteId={loteId} onClose={() => setMostrarModal(false)} />
+      )}
+    </>
   );
 }

@@ -9,6 +9,10 @@ import { crearPedido, actualizarPedido } from "../actions";
 interface Cliente {
   id: string;
   nombre: string;
+  cuit?: string | null;
+  direccion?: string | null;
+  localidad?: string | null;
+  provincia?: string | null;
 }
 
 interface Marca {
@@ -20,7 +24,8 @@ interface Producto {
   id: string;
   nombre: string;
   fotoUrl: string | null;
-  precio: number;
+  precioSinIva: number;
+  iva: number;
   marcaId: string;
 }
 
@@ -28,6 +33,8 @@ interface ItemEstado {
   productoId: string;
   cantidad: number;
   descuento: number;
+  precioSinIva: number;
+  iva: number;
 }
 
 type Paso = "cliente" | "marca" | "productos" | "confirmar";
@@ -58,8 +65,11 @@ export default function PedidoWizard({
   const router = useRouter();
   const [paso, setPaso] = useState<Paso>(modo === "editar" ? "marca" : "cliente");
   const [clienteId, setClienteId] = useState(clienteInicial?.id ?? "");
-  const [clienteNombre, setClienteNombre] = useState(clienteInicial?.nombre ?? "");
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | undefined>(
+    clienteInicial
+  );
   const [busquedaCliente, setBusquedaCliente] = useState("");
+  const [busquedaProducto, setBusquedaProducto] = useState("");
   const [marcaId, setMarcaId] = useState<string>("");
   const [items, setItems] = useState<Record<string, ItemEstado>>(() => {
     const inicial: Record<string, ItemEstado> = {};
@@ -90,6 +100,12 @@ export default function PedidoWizard({
     return productos.filter((p) => p.marcaId === marcaId);
   }, [marcaId, productos]);
 
+  const productosFiltrados = useMemo(() => {
+    const texto = busquedaProducto.trim().toLowerCase();
+    if (!texto) return productosVisibles;
+    return productosVisibles.filter((p) => p.nombre.toLowerCase().includes(texto));
+  }, [busquedaProducto, productosVisibles]);
+
   const itemsCargados = useMemo(
     () => Object.values(items).filter((i) => i.cantidad > 0),
     [items]
@@ -107,20 +123,63 @@ export default function PedidoWizard({
     return mapa;
   }, [itemsCargados, productos]);
 
+  function precioFinalProducto(producto: Producto) {
+    return producto.precioSinIva * (1 + producto.iva / 100);
+  }
+
   function calcularSubtotal(item: ItemEstado, precio: number) {
     return precio * item.cantidad * (1 - (item.descuento || 0) / 100);
+  }
+
+  function DatosCliente({ compacto = false }: { compacto?: boolean }) {
+    if (!clienteSeleccionado) return null;
+    const partes = [
+      clienteSeleccionado.cuit ? `CUIT: ${clienteSeleccionado.cuit}` : null,
+      clienteSeleccionado.direccion,
+      clienteSeleccionado.localidad,
+      clienteSeleccionado.provincia,
+    ].filter(Boolean);
+
+    if (compacto) {
+      return (
+        <span className="text-sm text-slate-600">
+          {clienteSeleccionado.nombre}
+          {partes.length > 0 && (
+            <span className="block text-xs text-slate-400">{partes.join(" · ")}</span>
+          )}
+        </span>
+      );
+    }
+
+    return (
+      <div className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+        <p>
+          Cliente: <span className="font-semibold">{clienteSeleccionado.nombre}</span>
+        </p>
+        {partes.length > 0 && <p className="mt-0.5 text-xs text-blue-700">{partes.join(" · ")}</p>}
+      </div>
+    );
   }
 
   const total = useMemo(() => {
     return itemsCargados.reduce((acc, item) => {
       const producto = productos.find((p) => p.id === item.productoId);
-      return acc + (producto ? calcularSubtotal(item, producto.precio) : 0);
+      return acc + (producto ? calcularSubtotal(item, precioFinalProducto(producto)) : 0);
     }, 0);
   }, [itemsCargados, productos]);
 
   function actualizarItem(productoId: string, cambios: Partial<ItemEstado>) {
     setItems((prev) => {
-      const actual = prev[productoId] ?? { productoId, cantidad: 0, descuento: 0 };
+      const producto = productos.find((p) => p.id === productoId);
+      const actual =
+        prev[productoId] ??
+        ({
+          productoId,
+          cantidad: 0,
+          descuento: 0,
+          precioSinIva: producto?.precioSinIva ?? 0,
+          iva: producto?.iva ?? 21,
+        } as ItemEstado);
       const nuevo = { ...actual, ...cambios };
       return { ...prev, [productoId]: nuevo };
     });
@@ -133,7 +192,7 @@ export default function PedidoWizard({
 
   function elegirCliente(cliente: Cliente) {
     setClienteId(cliente.id);
-    setClienteNombre(cliente.nombre);
+    setClienteSeleccionado(cliente);
     setPaso("marca");
   }
 
@@ -256,11 +315,7 @@ export default function PedidoWizard({
             Cancelar
           </button>
         </div>
-        {clienteNombre && (
-          <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-            Cliente: <span className="font-semibold">{clienteNombre}</span>
-          </p>
-        )}
+        <DatosCliente />
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Elegí una marca</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <button
@@ -327,9 +382,7 @@ export default function PedidoWizard({
           >
             ← Marcas
           </button>
-          {clienteNombre && (
-            <span className="text-sm text-slate-600">{clienteNombre}</span>
-          )}
+          <DatosCliente compacto />
           <button
             type="button"
             onClick={cancelarCarga}
@@ -339,8 +392,18 @@ export default function PedidoWizard({
           </button>
         </div>
 
+        <div className="px-4 pt-3">
+          <input
+            type="text"
+            value={busquedaProducto}
+            onChange={(e) => setBusquedaProducto(e.target.value)}
+            placeholder="Buscar producto..."
+            className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
-          {productosVisibles.map((producto) => {
+          {productosFiltrados.map((producto) => {
             const item = items[producto.id];
             const cantidad = item?.cantidad ?? 0;
             return (
@@ -352,7 +415,7 @@ export default function PedidoWizard({
                   className="relative aspect-square cursor-pointer bg-slate-100"
                   onClick={() =>
                     setProductoAmpliadoIndex(
-                      productosVisibles.findIndex((p) => p.id === producto.id)
+                      productosFiltrados.findIndex((p) => p.id === producto.id)
                     )
                   }
                 >
@@ -376,7 +439,7 @@ export default function PedidoWizard({
                     {producto.nombre}
                   </p>
                   <p className="text-sm font-semibold text-blue-700">
-                    ${producto.precio.toLocaleString("es-AR")}
+                    ${precioFinalProducto(producto).toLocaleString("es-AR")}
                   </p>
                   <div className="mt-2 flex items-center justify-between">
                     <button
@@ -412,7 +475,7 @@ export default function PedidoWizard({
               </div>
             );
           })}
-          {productosVisibles.length === 0 && (
+          {productosFiltrados.length === 0 && (
             <p className="col-span-full py-8 text-center text-slate-500">
               No hay productos disponibles en esta marca.
             </p>
@@ -438,11 +501,11 @@ export default function PedidoWizard({
           </button>
         </div>
 
-        {productoAmpliadoIndex !== null && productosVisibles[productoAmpliadoIndex] && (
+        {productoAmpliadoIndex !== null && productosFiltrados[productoAmpliadoIndex] && (
           <div className="fixed inset-0 z-50 flex flex-col bg-white">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
               <span className="text-sm text-slate-500">
-                {productoAmpliadoIndex + 1} de {productosVisibles.length}
+                {productoAmpliadoIndex + 1} de {productosFiltrados.length}
               </span>
               <button
                 type="button"
@@ -454,10 +517,10 @@ export default function PedidoWizard({
             </div>
 
             <div className="relative flex-1 bg-slate-100">
-              {productosVisibles[productoAmpliadoIndex].fotoUrl ? (
+              {productosFiltrados[productoAmpliadoIndex].fotoUrl ? (
                 <Image
-                  src={productosVisibles[productoAmpliadoIndex].fotoUrl as string}
-                  alt={productosVisibles[productoAmpliadoIndex].nombre}
+                  src={productosFiltrados[productoAmpliadoIndex].fotoUrl as string}
+                  alt={productosFiltrados[productoAmpliadoIndex].nombre}
                   fill
                   className="object-contain"
                   sizes="100vw"
@@ -479,7 +542,7 @@ export default function PedidoWizard({
                   ‹
                 </button>
               )}
-              {productoAmpliadoIndex < productosVisibles.length - 1 && (
+              {productoAmpliadoIndex < productosFiltrados.length - 1 && (
                 <button
                   type="button"
                   onClick={() => setProductoAmpliadoIndex((i) => (i !== null ? i + 1 : i))}
@@ -493,16 +556,16 @@ export default function PedidoWizard({
 
             <div className="border-t border-slate-200 px-4 py-4">
               <p className="text-base font-semibold text-slate-900">
-                {productosVisibles[productoAmpliadoIndex].nombre}
+                {productosFiltrados[productoAmpliadoIndex].nombre}
               </p>
               <p className="mb-3 text-lg font-bold text-blue-700">
-                ${productosVisibles[productoAmpliadoIndex].precio.toLocaleString("es-AR")}
+                ${precioFinalProducto(productosFiltrados[productoAmpliadoIndex]).toLocaleString("es-AR")}
               </p>
               <div className="flex items-center justify-center gap-4">
                 <button
                   type="button"
-                  onClick={() => cambiarCantidad(productosVisibles[productoAmpliadoIndex].id, -1)}
-                  disabled={(items[productosVisibles[productoAmpliadoIndex].id]?.cantidad ?? 0) === 0}
+                  onClick={() => cambiarCantidad(productosFiltrados[productoAmpliadoIndex].id, -1)}
+                  disabled={(items[productosFiltrados[productoAmpliadoIndex].id]?.cantidad ?? 0) === 0}
                   className="flex h-12 w-12 items-center justify-center rounded-lg border border-slate-300 text-2xl font-semibold text-slate-700 disabled:opacity-30"
                 >
                   −
@@ -510,11 +573,11 @@ export default function PedidoWizard({
                 <input
                   type="number"
                   min={0}
-                  value={items[productosVisibles[productoAmpliadoIndex].id]?.cantidad ?? 0}
+                  value={items[productosFiltrados[productoAmpliadoIndex].id]?.cantidad ?? 0}
                   onFocus={(e) => e.target.select()}
                       onClick={(e) => e.currentTarget.select()}
                   onChange={(e) =>
-                    actualizarItem(productosVisibles[productoAmpliadoIndex].id, {
+                    actualizarItem(productosFiltrados[productoAmpliadoIndex].id, {
                       cantidad: Math.max(0, Number(e.target.value) || 0),
                     })
                   }
@@ -522,7 +585,7 @@ export default function PedidoWizard({
                 />
                 <button
                   type="button"
-                  onClick={() => cambiarCantidad(productosVisibles[productoAmpliadoIndex].id, 1)}
+                  onClick={() => cambiarCantidad(productosFiltrados[productoAmpliadoIndex].id, 1)}
                   className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-700 text-2xl font-semibold text-white"
                 >
                   +
@@ -558,18 +621,20 @@ export default function PedidoWizard({
           </button>
         </div>
         <h1 className="mt-1 text-lg font-bold text-slate-900">Confirmar pedido</h1>
-        {clienteNombre && <p className="text-sm text-slate-500">{clienteNombre}</p>}
+        <DatosCliente compacto />
       </div>
 
       <div className="p-4">
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
                 <th className="px-3 py-2 font-medium">Producto</th>
                 <th className="px-3 py-2 text-right font-medium">Cant.</th>
-                <th className="px-3 py-2 text-right font-medium">Precio</th>
+                <th className="px-3 py-2 text-right font-medium">Precio S/IVA</th>
+                <th className="px-3 py-2 text-right font-medium">IVA %</th>
+                <th className="px-3 py-2 text-right font-medium">Precio Final</th>
                 <th className="px-3 py-2 text-right font-medium">Desc. %</th>
                 <th className="px-3 py-2 text-right font-medium">Subtotal</th>
               </tr>
@@ -578,7 +643,8 @@ export default function PedidoWizard({
               {itemsCargados.map((item) => {
                 const producto = productos.find((p) => p.id === item.productoId);
                 if (!producto) return null;
-                const subtotal = calcularSubtotal(item, producto.precio);
+                const precioFinalItem = item.precioSinIva * (1 + item.iva / 100);
+                const subtotal = calcularSubtotal(item, precioFinalItem);
                 return (
                   <tr key={item.productoId}>
                     <td className="px-3 py-2 text-slate-900">{producto.nombre}</td>
@@ -597,8 +663,41 @@ export default function PedidoWizard({
                         className="w-14 rounded border border-slate-200 px-1 py-1 text-right"
                       />
                     </td>
+                    <td className="px-3 py-2 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={item.precioSinIva}
+                        onFocus={(e) => e.target.select()}
+                        onClick={(e) => e.currentTarget.select()}
+                        onChange={(e) =>
+                          actualizarItem(item.productoId, {
+                            precioSinIva: Math.max(0, Number(e.target.value) || 0),
+                          })
+                        }
+                        className="w-20 rounded border border-slate-200 px-1 py-1 text-right"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        value={item.iva}
+                        onFocus={(e) => e.target.select()}
+                        onClick={(e) => e.currentTarget.select()}
+                        onChange={(e) =>
+                          actualizarItem(item.productoId, {
+                            iva: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                          })
+                        }
+                        className="w-16 rounded border border-slate-200 px-1 py-1 text-right"
+                      />
+                    </td>
                     <td className="px-3 py-2 text-right text-slate-600">
-                      ${producto.precio.toLocaleString("es-AR")}
+                      ${precioFinalItem.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <input
@@ -626,7 +725,7 @@ export default function PedidoWizard({
             </tbody>
             <tfoot>
               <tr className="bg-slate-50">
-                <td colSpan={4} className="px-3 py-3 text-right font-semibold text-slate-700">
+                <td colSpan={6} className="px-3 py-3 text-right font-semibold text-slate-700">
                   Total
                 </td>
                 <td className="px-3 py-3 text-right text-lg font-bold text-blue-700">

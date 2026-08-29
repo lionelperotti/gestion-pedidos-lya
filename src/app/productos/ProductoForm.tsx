@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
+import { subirImagenProducto } from "./imagen-actions";
 
 interface ProveedorConMarcas {
   id: string;
@@ -35,6 +37,9 @@ export default function ProductoForm({
   const [proveedorId, setProveedorId] = useState(valoresIniciales?.proveedorId ?? "");
   const [precioSinIva, setPrecioSinIva] = useState(valoresIniciales?.precioSinIva ?? 0);
   const [iva, setIva] = useState(valoresIniciales?.iva ?? 21);
+  const [fotoUrl, setFotoUrl] = useState(valoresIniciales?.fotoUrl ?? "");
+  const [subiendo, setSubiendo] = useState(false);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
 
   const proveedorSeleccionado = proveedores.find((p) => p.id === proveedorId);
   const marcasDisponibles = useMemo(
@@ -46,6 +51,25 @@ export default function ProductoForm({
     () => precioSinIva * (1 + iva / 100),
     [precioSinIva, iva]
   );
+
+  async function handleArchivoSeleccionado(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    if (!archivo) return;
+
+    setErrorSubida(null);
+    setSubiendo(true);
+    try {
+      const formData = new FormData();
+      formData.set("archivo", archivo);
+      const resultado = await subirImagenProducto(formData);
+      setFotoUrl(resultado.url);
+    } catch (err) {
+      setErrorSubida(err instanceof Error ? err.message : "No se pudo subir la imagen.");
+    } finally {
+      setSubiendo(false);
+      e.target.value = "";
+    }
+  }
 
   return (
     <form action={action} className="space-y-5">
@@ -73,15 +97,34 @@ export default function ProductoForm({
 
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
-          URL de la foto (opcional)
+          Foto del producto (opcional)
         </label>
         <input
           name="fotoUrl"
           type="url"
-          placeholder="https://..."
-          defaultValue={valoresIniciales?.fotoUrl}
-          className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          placeholder="Pegá una URL, o subí un archivo abajo"
+          value={fotoUrl}
+          onChange={(e) => setFotoUrl(e.target.value)}
+          className="mb-2 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
+        <div className="flex items-center gap-3">
+          <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {subiendo ? "Subiendo..." : "Subir foto"}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleArchivoSeleccionado}
+              disabled={subiendo}
+              className="hidden"
+            />
+          </label>
+          {fotoUrl && (
+            <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+              <Image src={fotoUrl} alt="Vista previa" fill className="object-cover" unoptimized />
+            </div>
+          )}
+        </div>
+        {errorSubida && <p className="mt-1 text-xs text-red-600">{errorSubida}</p>}
       </div>
 
       <div>

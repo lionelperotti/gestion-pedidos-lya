@@ -16,7 +16,10 @@ export default async function EditarPedidoPage({
 
   const pedido = await prisma.pedido.findUnique({
     where: { id },
-    include: { cliente: true, items: true },
+    include: {
+      cliente: { include: { localidad: true, provincia: true } },
+      items: true,
+    },
   });
 
   if (!pedido) {
@@ -46,7 +49,8 @@ export default async function EditarPedidoPage({
     id: p.id,
     nombre: p.nombre,
     fotoUrl: p.fotoUrl,
-    precio: Number(p.precioFinal),
+    precioSinIva: Number(p.precioSinIva),
+    iva: Number(p.iva),
     marcaId: p.marcaId,
   }));
 
@@ -54,6 +58,8 @@ export default async function EditarPedidoPage({
     productoId: item.productoId,
     cantidad: item.cantidad,
     descuento: Number(item.descuento),
+    precioSinIva: Number(item.precioSinIva),
+    iva: Number(item.iva),
   }));
 
   return (
@@ -70,7 +76,14 @@ export default async function EditarPedidoPage({
         productos={productos}
         modo="editar"
         pedidoId={pedido.id}
-        clienteInicial={{ id: pedido.cliente.id, nombre: pedido.cliente.nombre }}
+        clienteInicial={{
+          id: pedido.cliente.id,
+          nombre: pedido.cliente.nombre,
+          cuit: pedido.cliente.cuit,
+          direccion: pedido.cliente.direccion,
+          localidad: pedido.cliente.localidad?.nombre ?? null,
+          provincia: pedido.cliente.provincia?.nombre ?? null,
+        }}
         itemsIniciales={itemsIniciales}
         datosPedidoIniciales={{
           conFactura: pedido.conFactura,

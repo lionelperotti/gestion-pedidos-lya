@@ -10,6 +10,8 @@ interface ItemCarrito {
   productoId: string;
   cantidad: number;
   descuento: number;
+  precioSinIva: number;
+  iva: number;
 }
 
 interface DatosPedido {
@@ -18,6 +20,10 @@ interface DatosPedido {
   conFactura: boolean;
   modalidadPago: "CONTADO" | "CUENTA_CORRIENTE";
   observaciones: string;
+}
+
+function precioFinal(precioSinIva: number, iva: number) {
+  return precioSinIva * (1 + iva / 100);
 }
 
 async function usuarioActual() {
@@ -62,7 +68,9 @@ export async function crearPedido(datos: DatosPedido) {
           return {
             productoId: item.productoId,
             cantidad: item.cantidad,
-            precioUnitario: producto.precioFinal,
+            precioSinIva: item.precioSinIva,
+            iva: item.iva,
+            precioUnitario: precioFinal(item.precioSinIva, item.iva),
             descuento: item.descuento || 0,
           };
         }),
@@ -113,7 +121,9 @@ export async function actualizarPedido(pedidoId: string, datos: Omit<DatosPedido
             return {
               productoId: item.productoId,
               cantidad: item.cantidad,
-              precioUnitario: producto.precioFinal,
+              precioSinIva: item.precioSinIva,
+              iva: item.iva,
+              precioUnitario: precioFinal(item.precioSinIva, item.iva),
               descuento: item.descuento || 0,
             };
           }),
@@ -185,7 +195,9 @@ export async function copiarPedido(pedidoId: string) {
           return {
             productoId: item.productoId,
             cantidad: item.cantidad,
-            precioUnitario: producto.precioFinal, // precio actual, no el histórico
+            precioSinIva: producto.precioSinIva, // precio actual, no el histórico
+            iva: producto.iva,
+            precioUnitario: producto.precioFinal,
             descuento: item.descuento,
           };
         }),

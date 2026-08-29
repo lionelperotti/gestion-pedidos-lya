@@ -49,6 +49,8 @@ export async function obtenerDatosLoteParaPdf(loteId: string) {
         codigo: item.producto.codigoProveedor,
         nombre: item.producto.nombre,
         cantidad: item.cantidad,
+        precioSinIva: Number(item.precioSinIva),
+        iva: Number(item.iva),
         precioUnitario: Number(item.precioUnitario),
         descuento: Number(item.descuento),
         subtotal:

@@ -207,6 +207,8 @@ model PedidoItem {
   productoId     String
   producto       Producto @relation(fields: [productoId], references: [id])
   cantidad       Int
-  precioUnitario Decimal  @db.Decimal(10, 2) // se copia el precio al momento del pedido
+  precioSinIva   Decimal  @default(0) @db.Decimal(10, 2) // copiado del producto al momento del pedido, editable por línea
+  iva            Decimal  @default(21) @db.Decimal(5, 2) // porcentaje, editable por línea
+  precioUnitario Decimal  @db.Decimal(10, 2) // precio final = precioSinIva * (1 + iva/100)
   descuento      Decimal  @default(0) @db.Decimal(5, 2) // porcentaje, ej: 7.00
 }

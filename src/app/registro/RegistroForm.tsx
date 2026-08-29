@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { registrarUsuario } from "./actions";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function RegistroForm() {
   const [enviando, setEnviando] = useState(false);
@@ -61,13 +62,7 @@ export default function RegistroForm() {
         <label className="mb-1.5 block text-sm font-medium text-slate-700">
           Contraseña
         </label>
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={6}
-          className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-        />
+        <PasswordInput name="password" required minLength={6} />
         <p className="mt-1 text-xs text-slate-500">Mínimo 6 caracteres.</p>
       </div>
 

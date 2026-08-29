@@ -10,11 +10,11 @@ export default async function NuevoPedidoPage() {
   if (!sesionUsuario) redirect("/login");
   const usuario = sesionUsuario as unknown as UsuarioSesion;
 
-  const [clientes, marcas, productosDb] = await Promise.all([
+  const [clientesDb, marcas, productosDb] = await Promise.all([
     prisma.cliente.findMany({
       where: { vendedorId: usuario.id },
       orderBy: { nombre: "asc" },
-      select: { id: true, nombre: true },
+      include: { localidad: true, provincia: true },
     }),
     prisma.marca.findMany({
       where: { activo: true },
@@ -27,11 +27,21 @@ export default async function NuevoPedidoPage() {
     }),
   ]);
 
+  const clientes = clientesDb.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    cuit: c.cuit,
+    direccion: c.direccion,
+    localidad: c.localidad?.nombre ?? null,
+    provincia: c.provincia?.nombre ?? null,
+  }));
+
   const productos = productosDb.map((p) => ({
     id: p.id,
     nombre: p.nombre,
     fotoUrl: p.fotoUrl,
-    precio: Number(p.precioFinal),
+    precioSinIva: Number(p.precioSinIva),
+    iva: Number(p.iva),
     marcaId: p.marcaId,
   }));
 

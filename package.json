@@ -22,7 +22,8 @@
     "xlsx": "^0.18.5",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
-    "resend": "^4.0.0"
+    "resend": "^4.0.0",
+    "cloudinary": "^2.5.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
