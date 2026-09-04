@@ -130,12 +130,14 @@ export default async function DetallePedidoPage({
 
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="bg-slate-100 text-slate-600">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Producto</th>
                 <th className="px-4 py-2.5 text-right font-medium">Cant.</th>
-                <th className="px-4 py-2.5 text-right font-medium">Precio</th>
+                <th className="px-4 py-2.5 text-right font-medium">Precio S/IVA</th>
+                <th className="px-4 py-2.5 text-right font-medium">IVA</th>
+                <th className="px-4 py-2.5 text-right font-medium">Precio Final</th>
                 <th className="px-4 py-2.5 text-right font-medium">Desc.</th>
                 <th className="px-4 py-2.5 text-right font-medium">Subtotal</th>
               </tr>
@@ -155,6 +157,12 @@ export default async function DetallePedidoPage({
                       {item.cantidad}
                     </td>
                     <td className="px-4 py-2.5 text-right text-slate-600">
+                      ${Number(item.precioSinIva).toLocaleString("es-AR")}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">
+                      {Number(item.iva)}%
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">
                       ${Number(item.precioUnitario).toLocaleString("es-AR")}
                     </td>
                     <td className="px-4 py-2.5 text-right text-slate-600">
@@ -169,7 +177,7 @@ export default async function DetallePedidoPage({
             </tbody>
             <tfoot>
               <tr className="bg-slate-50">
-                <td colSpan={4} className="px-4 py-3 text-right font-semibold text-slate-700">
+                <td colSpan={6} className="px-4 py-3 text-right font-semibold text-slate-700">
                   Total
                 </td>
                 <td className="px-4 py-3 text-right text-lg font-bold text-blue-700">

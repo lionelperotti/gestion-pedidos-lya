@@ -3,7 +3,9 @@
 import { v2 as cloudinary } from "cloudinary";
 import { requireAdmin } from "@/lib/authz";
 
-export async function subirImagenProducto(formData: FormData) {
+type ResultadoSubida = { url: string; error?: undefined } | { url?: undefined; error: string };
+
+export async function subirImagenProducto(formData: FormData): Promise<ResultadoSubida> {
   await requireAdmin();
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -11,34 +13,42 @@ export async function subirImagenProducto(formData: FormData) {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error(
-      "La subida de imágenes todavía no está configurada (falta conectar Cloudinary)."
-    );
+    return {
+      error: "La subida de imágenes todavía no está configurada (falta conectar Cloudinary).",
+    };
   }
-
-  cloudinary.config({
-    cloud_name: cloudName,
-    api_key: apiKey,
-    api_secret: apiSecret,
-  });
 
   const archivo = formData.get("archivo");
   if (!(archivo instanceof File)) {
-    throw new Error("No se recibió ningún archivo.");
+    return { error: "No se recibió ningún archivo." };
   }
   if (!archivo.type.startsWith("image/")) {
-    throw new Error("El archivo tiene que ser una imagen.");
+    return { error: "El archivo tiene que ser una imagen." };
   }
   if (archivo.size > 8 * 1024 * 1024) {
-    throw new Error("La imagen no puede pesar más de 8MB.");
+    return { error: "La imagen no puede pesar más de 8MB." };
   }
 
-  const buffer = Buffer.from(await archivo.arrayBuffer());
-  const base64 = `data:${archivo.type};base64,${buffer.toString("base64")}`;
+  try {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    });
 
-  const resultado = await cloudinary.uploader.upload(base64, {
-    folder: "gestion-pedidos-lya/productos",
-  });
+    const buffer = Buffer.from(await archivo.arrayBuffer());
+    const base64 = `data:${archivo.type};base64,${buffer.toString("base64")}`;
 
-  return { url: resultado.secure_url };
+    const resultado = await cloudinary.uploader.upload(base64, {
+      folder: "gestion-pedidos-lya/productos",
+    });
+
+    return { url: resultado.secure_url };
+  } catch {
+    // No repetimos el mensaje técnico de Cloudinary al usuario (podría filtrar detalles
+    // internos); devolvemos algo claro y accionable en su lugar.
+    return {
+      error: "No se pudo subir la imagen a Cloudinary. Verificá las credenciales configuradas.",
+    };
+  }
 }

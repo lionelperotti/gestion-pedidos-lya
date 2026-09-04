@@ -62,9 +62,13 @@ export default function ProductoForm({
       const formData = new FormData();
       formData.set("archivo", archivo);
       const resultado = await subirImagenProducto(formData);
-      setFotoUrl(resultado.url);
-    } catch (err) {
-      setErrorSubida(err instanceof Error ? err.message : "No se pudo subir la imagen.");
+      if (resultado.error) {
+        setErrorSubida(resultado.error);
+      } else {
+        setFotoUrl(resultado.url);
+      }
+    } catch {
+      setErrorSubida("No se pudo subir la imagen. Probá de nuevo.");
     } finally {
       setSubiendo(false);
       e.target.value = "";

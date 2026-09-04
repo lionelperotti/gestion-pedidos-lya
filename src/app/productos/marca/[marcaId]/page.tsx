@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import ProductosGrid from "./ProductosGrid";
 
 export default async function ProductosPorMarcaPage({
   params,
@@ -17,11 +17,22 @@ export default async function ProductosPorMarcaPage({
     notFound();
   }
 
-  const productos = await prisma.producto.findMany({
+  const productosDb = await prisma.producto.findMany({
     where: { marcaId },
     orderBy: { nombre: "asc" },
     include: { proveedor: true },
   });
+
+  const productos = productosDb.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    fotoUrl: p.fotoUrl,
+    activo: p.activo,
+    precioFinal: Number(p.precioFinal),
+    precioActualizadoEn: p.precioActualizadoEn ? p.precioActualizadoEn.toISOString() : null,
+    proveedorNombre: p.proveedor.nombre,
+    codigoProveedor: p.codigoProveedor,
+  }));
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -41,65 +52,7 @@ export default async function ProductosPorMarcaPage({
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {productos.map((producto) => (
-            <Link
-              key={producto.id}
-              href={`/productos/${producto.id}`}
-              className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
-            >
-              <div className="relative aspect-square bg-slate-100">
-                {producto.fotoUrl ? (
-                  <Image
-                    src={producto.fotoUrl}
-                    alt={producto.nombre}
-                    fill
-                    className="object-cover"
-                    sizes="200px"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                    Sin foto
-                  </div>
-                )}
-                {!producto.activo && (
-                  <span className="absolute right-2 top-2 rounded-full bg-slate-900/80 px-2 py-0.5 text-xs font-medium text-white">
-                    Inactivo
-                  </span>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="truncate text-sm font-medium text-slate-900">
-                  {producto.nombre}
-                </p>
-                <p className="truncate text-xs text-slate-500">
-                  {producto.proveedor.nombre}
-                  {producto.codigoProveedor ? ` · ${producto.codigoProveedor}` : ""}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-blue-700">
-                  ${Number(producto.precioFinal).toLocaleString("es-AR")}
-                </p>
-                {producto.precioActualizadoEn && (
-                  <p className="mt-0.5 text-[11px] text-slate-400">
-                    Precio actualizado:{" "}
-                    {new Date(producto.precioActualizadoEn).toLocaleDateString("es-AR")}
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-        {productos.length === 0 && (
-          <p className="py-12 text-center text-slate-500">
-            Esta marca todavía no tiene productos cargados.
-          </p>
-        )}
-        {productos.length > 0 && (
-          <p className="mt-3 text-sm text-slate-500">
-            Total: {productos.length} producto{productos.length !== 1 ? "s" : ""}
-          </p>
-        )}
+        <ProductosGrid productos={productos} />
       </div>
     </main>
   );

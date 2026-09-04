@@ -664,20 +664,25 @@ export default function PedidoWizard({
                       />
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={item.precioSinIva}
-                        onFocus={(e) => e.target.select()}
-                        onClick={(e) => e.currentTarget.select()}
-                        onChange={(e) =>
-                          actualizarItem(item.productoId, {
-                            precioSinIva: Math.max(0, Number(e.target.value) || 0),
-                          })
-                        }
-                        className="w-20 rounded border border-slate-200 px-1 py-1 text-right"
-                      />
+                      <div className="relative inline-block">
+                        <span className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center text-slate-400">
+                          $
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={item.precioSinIva}
+                          onFocus={(e) => e.target.select()}
+                          onClick={(e) => e.currentTarget.select()}
+                          onChange={(e) =>
+                            actualizarItem(item.productoId, {
+                              precioSinIva: Math.max(0, Number(e.target.value) || 0),
+                            })
+                          }
+                          className="w-20 rounded border border-slate-200 py-1 pl-4 pr-1 text-right"
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <input
