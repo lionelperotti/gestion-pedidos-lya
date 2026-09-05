@@ -21,7 +21,11 @@ export default function ProductosGrid({ productos }: { productos: ProductoResume
   const productosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     if (!texto) return productos;
-    return productos.filter((p) => p.nombre.toLowerCase().includes(texto));
+    return productos.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(texto) ||
+        (p.codigoProveedor ?? "").toLowerCase().includes(texto)
+    );
   }, [busqueda, productos]);
 
   return (
@@ -30,11 +34,11 @@ export default function ProductosGrid({ productos }: { productos: ProductoResume
         type="text"
         value={busqueda}
         onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar producto..."
+        placeholder="Buscar por nombre o código..."
         className="mb-4 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {productosFiltrados.map((producto) => (
           <Link
             key={producto.id}
@@ -63,7 +67,9 @@ export default function ProductosGrid({ productos }: { productos: ProductoResume
               )}
             </div>
             <div className="p-3">
-              <p className="truncate text-sm font-medium text-slate-900">{producto.nombre}</p>
+              <p className="text-sm font-medium leading-snug text-slate-900">
+                {producto.nombre}
+              </p>
               <p className="truncate text-xs text-slate-500">
                 {producto.proveedorNombre}
                 {producto.codigoProveedor ? ` · ${producto.codigoProveedor}` : ""}

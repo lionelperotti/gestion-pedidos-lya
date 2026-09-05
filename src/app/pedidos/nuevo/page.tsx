@@ -43,6 +43,8 @@ export default async function NuevoPedidoPage() {
     precioSinIva: Number(p.precioSinIva),
     iva: Number(p.iva),
     marcaId: p.marcaId,
+    codigoProveedor: p.codigoProveedor,
+    precioActualizadoEn: p.precioActualizadoEn ? p.precioActualizadoEn.toISOString() : null,
   }));
 
   return (

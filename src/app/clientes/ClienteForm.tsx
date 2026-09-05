@@ -8,6 +8,11 @@ interface ProvinciaConLocalidades {
   localidades: { id: string; nombre: string }[];
 }
 
+interface RubroOpcion {
+  id: string;
+  nombre: string;
+}
+
 interface ClienteFormValues {
   nombre: string;
   telefono: string;
@@ -18,15 +23,18 @@ interface ClienteFormValues {
   categoria: string;
   provinciaId: string;
   localidadId: string;
+  rubroId: string;
 }
 
 export default function ClienteForm({
   action,
   provincias,
+  rubros,
   valoresIniciales,
 }: {
   action: (formData: FormData) => void;
   provincias: ProvinciaConLocalidades[];
+  rubros: RubroOpcion[];
   valoresIniciales?: Partial<ClienteFormValues>;
 }) {
   const [provinciaId, setProvinciaId] = useState(valoresIniciales?.provinciaId ?? "");
@@ -167,6 +175,24 @@ export default function ClienteForm({
           defaultValue={valoresIniciales?.email}
           className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">
+          Rubro (opcional)
+        </label>
+        <select
+          name="rubroId"
+          defaultValue={valoresIniciales?.rubroId ?? ""}
+          className="w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
+        >
+          <option value="">Sin especificar</option>
+          {rubros.map((rubro) => (
+            <option key={rubro.id} value={rubro.id}>
+              {rubro.nombre}
+            </option>
+          ))}
+        </select>
       </div>
 
       <button

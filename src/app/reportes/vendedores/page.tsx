@@ -5,6 +5,7 @@ import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
 import { obtenerPedidosParaReporte, totalPedido } from "../consultas";
 import ReporteFiltros from "../ReporteFiltros";
+import ExportarBotones from "../ExportarBotones";
 
 export default async function ReporteVendedoresPage({
   searchParams,
@@ -65,6 +66,28 @@ export default async function ReporteVendedoresPage({
           vendedorIdInicial={filtros.vendedorId ?? ""}
           usuarioIdPropio={usuario.id}
         />
+
+        <div className="mb-4 flex justify-end">
+          <ExportarBotones
+            titulo="Ventas por Vendedor"
+            nombreArchivo="ventas-por-vendedor"
+            columnas={[
+              { header: "Vendedor", accessor: (f: (typeof filas)[number]) => f.nombre },
+              {
+                header: "Pedidos",
+                accessor: (f: (typeof filas)[number]) => f.cantidadPedidos,
+                alineacionDerecha: true,
+              },
+              {
+                header: "Total",
+                accessor: (f: (typeof filas)[number]) =>
+                  f.total.toLocaleString("es-AR", { maximumFractionDigits: 2 }),
+                alineacionDerecha: true,
+              },
+            ]}
+            filas={filas}
+          />
+        </div>
 
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-left text-sm">

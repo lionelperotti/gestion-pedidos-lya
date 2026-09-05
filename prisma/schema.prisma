@@ -132,6 +132,14 @@ enum CategoriaCliente {
   CF
 }
 
+model Rubro {
+  id            String    @id @default(cuid())
+  nombre        String    @unique
+  clientes      Cliente[]
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+}
+
 model Cliente {
   id            String    @id @default(cuid())
   nombre        String
@@ -145,6 +153,8 @@ model Cliente {
   localidad     Localidad? @relation(fields: [localidadId], references: [id])
   provinciaId   String?    // redundante a propósito: permite elegir Provincia sin depender de Localidad
   provincia     Provincia? @relation(fields: [provinciaId], references: [id])
+  rubroId       String?
+  rubro         Rubro?    @relation(fields: [rubroId], references: [id])
   vendedorId    String
   vendedor      Usuario   @relation(fields: [vendedorId], references: [id])
   pedidos       Pedido[]

@@ -31,6 +31,12 @@ export default async function ProductosMarcasPage() {
 
       <div className="mx-auto max-w-4xl px-6 py-8">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <Link
+            href="/productos/todos"
+            className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-8 text-center shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+          >
+            <span className="font-semibold text-slate-900">Todos los productos</span>
+          </Link>
           {marcas.map((marca) => (
             <Link
               key={marca.id}

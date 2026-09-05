@@ -9,10 +9,13 @@ export default async function NuevoClientePage() {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) redirect("/login");
 
-  const provincias = await prisma.provincia.findMany({
-    orderBy: { nombre: "asc" },
-    include: { localidades: { orderBy: { nombre: "asc" } } },
-  });
+  const [provincias, rubros] = await Promise.all([
+    prisma.provincia.findMany({
+      orderBy: { nombre: "asc" },
+      include: { localidades: { orderBy: { nombre: "asc" } } },
+    }),
+    prisma.rubro.findMany({ orderBy: { nombre: "asc" } }),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -24,7 +27,7 @@ export default async function NuevoClientePage() {
       </header>
 
       <div className="mx-auto max-w-md px-6 py-8">
-        <ClienteForm action={crearCliente} provincias={provincias} />
+        <ClienteForm action={crearCliente} provincias={provincias} rubros={rubros} />
       </div>
     </main>
   );

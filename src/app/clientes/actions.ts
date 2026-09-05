@@ -18,6 +18,7 @@ function leerDatosCliente(formData: FormData) {
   const categoria = String(formData.get("categoria") ?? "").trim();
   const provinciaId = String(formData.get("provinciaId") ?? "").trim();
   const localidadId = String(formData.get("localidadId") ?? "").trim();
+  const rubroId = String(formData.get("rubroId") ?? "").trim();
 
   if (!nombre) throw new Error("El nombre del cliente es obligatorio.");
   if (!codigoCliente) throw new Error("El código de cliente es obligatorio.");
@@ -36,6 +37,7 @@ function leerDatosCliente(formData: FormData) {
     categoria: categoria as (typeof CATEGORIAS_VALIDAS)[number],
     provinciaId: provinciaId || null,
     localidadId: localidadId || null,
+    rubroId: rubroId || null,
   };
 }
 

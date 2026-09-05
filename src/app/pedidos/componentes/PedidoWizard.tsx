@@ -27,6 +27,8 @@ interface Producto {
   precioSinIva: number;
   iva: number;
   marcaId: string;
+  codigoProveedor: string | null;
+  precioActualizadoEn: string | null;
 }
 
 interface ItemEstado {
@@ -103,7 +105,11 @@ export default function PedidoWizard({
   const productosFiltrados = useMemo(() => {
     const texto = busquedaProducto.trim().toLowerCase();
     if (!texto) return productosVisibles;
-    return productosVisibles.filter((p) => p.nombre.toLowerCase().includes(texto));
+    return productosVisibles.filter(
+      (p) =>
+        p.nombre.toLowerCase().includes(texto) ||
+        (p.codigoProveedor ?? "").toLowerCase().includes(texto)
+    );
   }, [busquedaProducto, productosVisibles]);
 
   const itemsCargados = useMemo(
@@ -397,12 +403,12 @@ export default function PedidoWizard({
             type="text"
             value={busquedaProducto}
             onChange={(e) => setBusquedaProducto(e.target.value)}
-            placeholder="Buscar producto..."
+            placeholder="Buscar por nombre o código..."
             className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {productosFiltrados.map((producto) => {
             const item = items[producto.id];
             const cantidad = item?.cantidad ?? 0;
@@ -435,12 +441,18 @@ export default function PedidoWizard({
                   )}
                 </div>
                 <div className="p-2.5">
-                  <p className="truncate text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium leading-snug text-slate-900">
                     {producto.nombre}
                   </p>
                   <p className="text-sm font-semibold text-blue-700">
                     ${precioFinalProducto(producto).toLocaleString("es-AR")}
                   </p>
+                  {producto.precioActualizadoEn && (
+                    <p className="text-[11px] text-slate-400">
+                      Precio actualizado:{" "}
+                      {new Date(producto.precioActualizadoEn).toLocaleDateString("es-AR")}
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center justify-between">
                     <button
                       type="button"

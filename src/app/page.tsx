@@ -104,6 +104,12 @@ export default async function Home() {
               >
                 Localidades
               </Link>
+              <Link
+                href="/rubros"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Rubros
+              </Link>
             </>
           )}
         </div>

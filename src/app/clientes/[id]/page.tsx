@@ -16,12 +16,13 @@ export default async function EditarClientePage({
   const usuario = sesionUsuario as unknown as UsuarioSesion;
   const { id } = await params;
 
-  const [cliente, provincias] = await Promise.all([
+  const [cliente, provincias, rubros] = await Promise.all([
     prisma.cliente.findUnique({ where: { id } }),
     prisma.provincia.findMany({
       orderBy: { nombre: "asc" },
       include: { localidades: { orderBy: { nombre: "asc" } } },
     }),
+    prisma.rubro.findMany({ orderBy: { nombre: "asc" } }),
   ]);
 
   if (!cliente) {
@@ -47,6 +48,7 @@ export default async function EditarClientePage({
         <ClienteForm
           action={actualizarConId}
           provincias={provincias}
+          rubros={rubros}
           valoresIniciales={{
             nombre: cliente.nombre,
             telefono: cliente.telefono ?? "",
@@ -57,6 +59,7 @@ export default async function EditarClientePage({
             categoria: cliente.categoria,
             provinciaId: cliente.provinciaId ?? "",
             localidadId: cliente.localidadId ?? "",
+            rubroId: cliente.rubroId ?? "",
           }}
         />
       </div>
