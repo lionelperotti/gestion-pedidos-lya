@@ -3,7 +3,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { requireAdmin } from "@/lib/authz";
 
-type ResultadoSubida = { url: string; error?: undefined } | { url?: undefined; error: string };
+type ResultadoSubida = { ok: true; url: string } | { ok: false; error: string };
 
 export async function subirImagenProducto(formData: FormData): Promise<ResultadoSubida> {
   await requireAdmin();
@@ -14,19 +14,20 @@ export async function subirImagenProducto(formData: FormData): Promise<Resultado
 
   if (!cloudName || !apiKey || !apiSecret) {
     return {
+      ok: false,
       error: "La subida de imágenes todavía no está configurada (falta conectar Cloudinary).",
     };
   }
 
   const archivo = formData.get("archivo");
   if (!(archivo instanceof File)) {
-    return { error: "No se recibió ningún archivo." };
+    return { ok: false, error: "No se recibió ningún archivo." };
   }
   if (!archivo.type.startsWith("image/")) {
-    return { error: "El archivo tiene que ser una imagen." };
+    return { ok: false, error: "El archivo tiene que ser una imagen." };
   }
   if (archivo.size > 8 * 1024 * 1024) {
-    return { error: "La imagen no puede pesar más de 8MB." };
+    return { ok: false, error: "La imagen no puede pesar más de 8MB." };
   }
 
   try {
@@ -43,11 +44,12 @@ export async function subirImagenProducto(formData: FormData): Promise<Resultado
       folder: "gestion-pedidos-lya/productos",
     });
 
-    return { url: resultado.secure_url };
+    return { ok: true, url: resultado.secure_url };
   } catch {
     // No repetimos el mensaje técnico de Cloudinary al usuario (podría filtrar detalles
     // internos); devolvemos algo claro y accionable en su lugar.
     return {
+      ok: false,
       error: "No se pudo subir la imagen a Cloudinary. Verificá las credenciales configuradas.",
     };
   }

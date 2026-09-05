@@ -62,7 +62,7 @@ export default function ProductoForm({
       const formData = new FormData();
       formData.set("archivo", archivo);
       const resultado = await subirImagenProducto(formData);
-      if (resultado.error) {
+      if (!resultado.ok) {
         setErrorSubida(resultado.error);
       } else {
         setFotoUrl(resultado.url);
