@@ -59,29 +59,23 @@ export default async function ReporteCatalogoPage({
             titulo="Catálogo de Productos"
             nombreArchivo="catalogo-productos"
             columnas={[
-              { header: "Código", accessor: (f: (typeof filas)[number]) => f.codigo },
-              { header: "Nombre", accessor: (f: (typeof filas)[number]) => f.nombre },
-              { header: "Proveedor", accessor: (f: (typeof filas)[number]) => f.proveedor },
-              { header: "Marca", accessor: (f: (typeof filas)[number]) => f.marca },
-              {
-                header: "Precio S/IVA",
-                accessor: (f: (typeof filas)[number]) =>
-                  f.precioSinIva.toLocaleString("es-AR"),
-                alineacionDerecha: true,
-              },
-              {
-                header: "IVA",
-                accessor: (f: (typeof filas)[number]) => `${f.iva}%`,
-                alineacionDerecha: true,
-              },
-              {
-                header: "Precio Final",
-                accessor: (f: (typeof filas)[number]) =>
-                  f.precioFinal.toLocaleString("es-AR"),
-                alineacionDerecha: true,
-              },
+              { header: "Código" },
+              { header: "Nombre" },
+              { header: "Proveedor" },
+              { header: "Marca" },
+              { header: "Precio S/IVA", alineacionDerecha: true },
+              { header: "IVA", alineacionDerecha: true },
+              { header: "Precio Final", alineacionDerecha: true },
             ]}
-            filas={filas}
+            filas={filas.map((f) => [
+              f.codigo,
+              f.nombre,
+              f.proveedor,
+              f.marca,
+              f.precioSinIva.toLocaleString("es-AR"),
+              `${f.iva}%`,
+              f.precioFinal.toLocaleString("es-AR"),
+            ])}
           />
         </div>
 

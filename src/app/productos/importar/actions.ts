@@ -40,6 +40,10 @@ export async function previsualizarImportacion(
 
   const resultado: FilaPreview[] = [];
 
+  // Detecta código de proveedor repetido DENTRO del mismo archivo, para no
+  // crear dos productos duplicados sin avisar.
+  const codigosVistos = new Map<string, number>();
+
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
     const numeroFila = i + 2; // +2 porque la fila 1 es el encabezado
@@ -52,6 +56,20 @@ export async function previsualizarImportacion(
         mensaje: "Faltan datos obligatorios (nombre o precio).",
       });
       continue;
+    }
+
+    if (fila.codigoProveedor) {
+      const filaPrevia = codigosVistos.get(fila.codigoProveedor);
+      if (filaPrevia) {
+        resultado.push({
+          ...fila,
+          fila: numeroFila,
+          accion: "error",
+          mensaje: `Código duplicado: ya aparece en la fila ${filaPrevia} de este mismo archivo.`,
+        });
+        continue;
+      }
+      codigosVistos.set(fila.codigoProveedor, numeroFila);
     }
 
     const existente = fila.codigoProveedor
@@ -77,50 +95,63 @@ export async function previsualizarImportacion(
   return resultado;
 }
 
+export interface ResultadoImportacionMasiva {
+  creados: number;
+  actualizados: number;
+  errores: { fila: number; mensaje: string }[];
+}
+
 export async function aplicarImportacionMasiva(
   proveedorId: string,
   marcaId: string,
   filas: FilaPreview[]
-) {
+): Promise<ResultadoImportacionMasiva> {
   await requireAdmin();
 
   const validas = filas.filter((f) => f.accion !== "error");
   let creados = 0;
   let actualizados = 0;
+  const errores: { fila: number; mensaje: string }[] = [];
 
+  // Cada fila en su propio try/catch: si una falla, seguimos con las demás
+  // en vez de cortar toda la importación sin explicación.
   for (const fila of validas) {
-    const precioFinal = calcularPrecioFinal(fila.precioSinIva, fila.iva);
+    try {
+      const precioFinal = calcularPrecioFinal(fila.precioSinIva, fila.iva);
 
-    if (fila.accion === "actualizar" && fila.productoId) {
-      await prisma.producto.update({
-        where: { id: fila.productoId },
-        data: {
-          precioSinIva: fila.precioSinIva,
-          iva: fila.iva,
-          precioFinal,
-          precioActualizadoEn: new Date(),
-          ...(fila.fotoUrl ? { fotoUrl: fila.fotoUrl } : {}),
-        },
-      });
-      actualizados++;
-    } else if (fila.accion === "crear") {
-      await prisma.producto.create({
-        data: {
-          nombre: fila.nombre,
-          codigoProveedor: fila.codigoProveedor || null,
-          fotoUrl: fila.fotoUrl || null,
-          precioSinIva: fila.precioSinIva,
-          iva: fila.iva,
-          precioFinal,
-          precioActualizadoEn: new Date(),
-          proveedorId,
-          marcaId,
-        },
-      });
-      creados++;
+      if (fila.accion === "actualizar" && fila.productoId) {
+        await prisma.producto.update({
+          where: { id: fila.productoId },
+          data: {
+            precioSinIva: fila.precioSinIva,
+            iva: fila.iva,
+            precioFinal,
+            precioActualizadoEn: new Date(),
+            ...(fila.fotoUrl ? { fotoUrl: fila.fotoUrl } : {}),
+          },
+        });
+        actualizados++;
+      } else if (fila.accion === "crear") {
+        await prisma.producto.create({
+          data: {
+            nombre: fila.nombre,
+            codigoProveedor: fila.codigoProveedor || null,
+            fotoUrl: fila.fotoUrl || null,
+            precioSinIva: fila.precioSinIva,
+            iva: fila.iva,
+            precioFinal,
+            precioActualizadoEn: new Date(),
+            proveedorId,
+            marcaId,
+          },
+        });
+        creados++;
+      }
+    } catch {
+      errores.push({ fila: fila.fila, mensaje: "No se pudo guardar esta fila (error inesperado)." });
     }
   }
 
   revalidatePath("/productos");
-  return { creados, actualizados };
+  return { creados, actualizados, errores };
 }

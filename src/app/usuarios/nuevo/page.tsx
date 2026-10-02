@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
-import { crearUsuario } from "../actions";
+import NuevoUsuarioForm from "../NuevoUsuarioForm";
 
 export default async function NuevoUsuarioPage() {
   await requireAdmin();
@@ -18,68 +18,7 @@ export default async function NuevoUsuarioPage() {
       </header>
 
       <div className="mx-auto max-w-md px-6 py-8">
-        <form action={crearUsuario} className="space-y-5">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Nombre
-            </label>
-            <input
-              name="nombre"
-              required
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Email
-            </label>
-            <input
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Contraseña
-            </label>
-            <input
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-            <p className="mt-1 text-xs text-slate-500">Mínimo 6 caracteres.</p>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Perfil
-            </label>
-            <select
-              name="perfilId"
-              required
-              defaultValue=""
-              className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="" disabled>
-                Seleccionar perfil
-              </option>
-              {perfiles.map((perfil) => (
-                <option key={perfil.id} value={perfil.id}>
-                  {perfil.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
-          >
-            Crear usuario
-          </button>
-        </form>
+        <NuevoUsuarioForm perfiles={perfiles} />
       </div>
     </main>
   );

@@ -35,6 +35,10 @@ export async function previsualizarImportacionClientes(
   const provincias = await prisma.provincia.findMany({ include: { localidades: true } });
   const resultado: FilaPreviewCliente[] = [];
 
+  // Para detectar CUIT repetido DENTRO del mismo archivo (no solo contra la base),
+  // que es lo que rompía la carga sin avisar cuál era la fila problemática.
+  const cuitsVistos = new Map<string, number>(); // cuit -> primera fila donde apareció
+
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
     const numeroFila = i + 2;
@@ -48,6 +52,19 @@ export async function previsualizarImportacionClientes(
       });
       continue;
     }
+
+    const cuitNormalizado = fila.cuit.trim();
+    const filaPrevia = cuitsVistos.get(cuitNormalizado);
+    if (filaPrevia) {
+      resultado.push({
+        ...fila,
+        fila: numeroFila,
+        accion: "error",
+        mensaje: `CUIT duplicado: ya aparece en la fila ${filaPrevia} de este mismo archivo.`,
+      });
+      continue;
+    }
+    cuitsVistos.set(cuitNormalizado, numeroFila);
 
     const categoria = fila.categoria.trim().toUpperCase();
     if (!CATEGORIAS_VALIDAS.includes(categoria)) {
@@ -95,10 +112,11 @@ export async function previsualizarImportacionClientes(
       }
     }
 
-    const existente = await prisma.cliente.findUnique({ where: { cuit: fila.cuit } });
+    const existente = await prisma.cliente.findUnique({ where: { cuit: cuitNormalizado } });
 
     resultado.push({
       ...fila,
+      cuit: cuitNormalizado,
       categoria,
       fila: numeroFila,
       accion: existente ? "actualizar" : "crear",
@@ -111,7 +129,15 @@ export async function previsualizarImportacionClientes(
   return resultado;
 }
 
-export async function aplicarImportacionClientes(filas: FilaPreviewCliente[]) {
+export interface ResultadoImportacionClientes {
+  creados: number;
+  actualizados: number;
+  errores: { fila: number; mensaje: string }[];
+}
+
+export async function aplicarImportacionClientes(
+  filas: FilaPreviewCliente[]
+): Promise<ResultadoImportacionClientes> {
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) throw new Error("No autenticado.");
   const usuario = sesionUsuario as unknown as UsuarioSesion;
@@ -119,38 +145,51 @@ export async function aplicarImportacionClientes(filas: FilaPreviewCliente[]) {
   const validas = filas.filter((f) => f.accion !== "error");
   let creados = 0;
   let actualizados = 0;
+  const errores: { fila: number; mensaje: string }[] = [];
 
+  // Cada fila se procesa en su propio try/catch: si una falla, seguimos con
+  // las demás en vez de cortar toda la importación sin explicación.
   for (const fila of validas) {
-    if (fila.accion === "actualizar" && fila.clienteId) {
-      await prisma.cliente.update({
-        where: { id: fila.clienteId },
-        data: {
-          nombre: fila.nombre,
-          direccion: fila.domicilio || null,
-          codigoCliente: fila.codigoCliente,
-          categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
-          provinciaId: fila.provinciaId ?? null,
-          localidadId: fila.localidadId ?? null,
-        },
+    try {
+      if (fila.accion === "actualizar" && fila.clienteId) {
+        await prisma.cliente.update({
+          where: { id: fila.clienteId },
+          data: {
+            nombre: fila.nombre,
+            direccion: fila.domicilio || null,
+            codigoCliente: fila.codigoCliente,
+            categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
+            provinciaId: fila.provinciaId ?? null,
+            localidadId: fila.localidadId ?? null,
+          },
+        });
+        actualizados++;
+      } else if (fila.accion === "crear") {
+        await prisma.cliente.create({
+          data: {
+            nombre: fila.nombre,
+            direccion: fila.domicilio || null,
+            codigoCliente: fila.codigoCliente,
+            cuit: fila.cuit,
+            categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
+            provinciaId: fila.provinciaId ?? null,
+            localidadId: fila.localidadId ?? null,
+            vendedorId: usuario.id,
+          },
+        });
+        creados++;
+      }
+    } catch (e) {
+      errores.push({
+        fila: fila.fila,
+        mensaje:
+          e instanceof Error && e.message.includes("Unique constraint")
+            ? `El CUIT "${fila.cuit}" ya existe en otro cliente (conflicto al guardar).`
+            : "No se pudo guardar esta fila (error inesperado).",
       });
-      actualizados++;
-    } else if (fila.accion === "crear") {
-      await prisma.cliente.create({
-        data: {
-          nombre: fila.nombre,
-          direccion: fila.domicilio || null,
-          codigoCliente: fila.codigoCliente,
-          cuit: fila.cuit,
-          categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
-          provinciaId: fila.provinciaId ?? null,
-          localidadId: fila.localidadId ?? null,
-          vendedorId: usuario.id,
-        },
-      });
-      creados++;
     }
   }
 
   revalidatePath("/clientes");
-  return { creados, actualizados };
+  return { creados, actualizados, errores };
 }

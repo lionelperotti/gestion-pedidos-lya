@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { crearOAgregarLote } from "../../lotes/actions";
+import { eliminarPedido } from "../actions";
 
 interface PedidoResumen {
   id: string;
@@ -26,6 +27,7 @@ export default function SeleccionPedidosPendientes({
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
+  const [borrandoId, setBorrandoId] = useState<string | null>(null);
 
   const totalGeneral = pedidos.reduce((acc, p) => acc + p.total, 0);
 
@@ -59,6 +61,20 @@ export default function SeleccionPedidosPendientes({
     });
   }
 
+  async function handleBorrar(pedidoId: string, numero: number) {
+    const confirmado = confirm(
+      `¿Seguro que querés borrar el Pedido #${numero}? Esta acción no se puede deshacer y lo vas a perder para siempre.`
+    );
+    if (!confirmado) return;
+
+    setBorrandoId(pedidoId);
+    try {
+      await eliminarPedido(pedidoId);
+    } catch {
+      setBorrandoId(null);
+    }
+  }
+
   return (
     <div>
       {pedidos.length > 0 && (
@@ -77,7 +93,7 @@ export default function SeleccionPedidosPendientes({
         {pedidos.map((pedido) => (
           <div
             key={pedido.id}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
           >
             <input
               type="checkbox"
@@ -85,18 +101,34 @@ export default function SeleccionPedidosPendientes({
               onChange={() => toggle(pedido.id)}
               className="h-4 w-4 flex-shrink-0 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
             />
-            <Link href={`/pedidos/${pedido.id}`} className="min-w-0 flex-1">
-              <p className="font-medium text-slate-900 hover:underline">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-slate-900">
                 Pedido #{pedido.numero} · {pedido.clienteNombre}
               </p>
               <p className="text-sm text-slate-500">
                 {pedido.cantidadItems} producto{pedido.cantidadItems !== 1 ? "s" : ""}
                 {esAdmin && ` · ${pedido.vendedorNombre}`} · {pedido.fecha}
               </p>
-            </Link>
+            </div>
             <span className="font-semibold text-blue-700">
               ${pedido.total.toLocaleString("es-AR", { maximumFractionDigits: 2 })}
             </span>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <Link
+                href={`/pedidos/${pedido.id}/ver`}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-center text-xs font-medium text-slate-700 hover:bg-slate-50 sm:flex-none"
+              >
+                Ver
+              </Link>
+              <button
+                type="button"
+                onClick={() => handleBorrar(pedido.id, pedido.numero)}
+                disabled={borrandoId === pedido.id}
+                className="flex-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
+              >
+                {borrandoId === pedido.id ? "Borrando..." : "Borrar"}
+              </button>
+            </div>
           </div>
         ))}
         {pedidos.length === 0 && (

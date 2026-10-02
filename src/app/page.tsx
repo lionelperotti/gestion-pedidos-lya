@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUsuario } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import CerrarSesionBoton from "@/components/CerrarSesionBoton";
 import AppFooter from "@/components/AppFooter";
 import type { UsuarioSesion } from "@/lib/auth";
@@ -14,6 +15,22 @@ export default async function Home() {
 
   const usuario = sesionUsuario as unknown as UsuarioSesion;
   const esAdmin = usuario.perfil === "Administrador";
+
+  // Espacio reservado para avisos que necesitan la atención del usuario.
+  // Por ahora solo cubre usuarios pendientes de autorizar (solo Admin);
+  // más adelante se pueden sumar más tipos de aviso a este mismo arreglo.
+  const avisos: { texto: string; href: string }[] = [];
+  if (esAdmin) {
+    const pendientes = await prisma.usuario.count({ where: { estado: "PENDIENTE" } });
+    if (pendientes > 0) {
+      avisos.push({
+        texto: `Hay ${pendientes} usuario${pendientes !== 1 ? "s" : ""} pendiente${
+          pendientes !== 1 ? "s" : ""
+        } de autorizar.`,
+        href: "/usuarios",
+      });
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -110,9 +127,30 @@ export default async function Home() {
               >
                 Rubros
               </Link>
+              <Link
+                href="/backup"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-5 text-center font-medium text-slate-900 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50"
+              >
+                Backup
+              </Link>
             </>
           )}
         </div>
+
+        {avisos.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-500">Avisos</h2>
+            {avisos.map((aviso) => (
+              <Link
+                key={aviso.href + aviso.texto}
+                href={aviso.href}
+                className="block rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100"
+              >
+                ⚠️ {aviso.texto}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       <AppFooter />
     </main>

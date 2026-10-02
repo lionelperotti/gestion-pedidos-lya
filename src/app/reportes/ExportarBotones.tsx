@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 
-export interface ColumnaReporte<T> {
+export interface ColumnaReporte {
   header: string;
-  accessor: (fila: T) => string | number;
   alineacionDerecha?: boolean;
 }
 
-export default function ExportarBotones<T>({
+export default function ExportarBotones({
   titulo,
   nombreArchivo,
   columnas,
@@ -16,8 +15,11 @@ export default function ExportarBotones<T>({
 }: {
   titulo: string;
   nombreArchivo: string;
-  columnas: ColumnaReporte<T>[];
-  filas: T[];
+  columnas: ColumnaReporte[];
+  // Cada fila ya viene formateada como texto/número, en el mismo orden que "columnas".
+  // (No se pasan funciones: un Server Component no puede pasarle funciones a un
+  // Client Component, así que el formateo se hace antes, del lado del servidor.)
+  filas: (string | number)[][];
 }) {
   const [generando, setGenerando] = useState<"excel" | "pdf" | null>(null);
 
@@ -27,9 +29,9 @@ export default function ExportarBotones<T>({
       const XLSX = await import("xlsx");
       const datos = filas.map((fila) => {
         const fila2: Record<string, string | number> = {};
-        for (const col of columnas) {
-          fila2[col.header] = col.accessor(fila);
-        }
+        columnas.forEach((col, i) => {
+          fila2[col.header] = fila[i];
+        });
         return fila2;
       });
       const hoja = XLSX.utils.json_to_sheet(datos);
@@ -57,7 +59,7 @@ export default function ExportarBotones<T>({
         startY: 27,
         margin: { left: 14, right: 14 },
         head: [columnas.map((c) => c.header)],
-        body: filas.map((fila) => columnas.map((c) => String(c.accessor(fila)))),
+        body: filas.map((fila) => fila.map((valor) => String(valor))),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [30, 64, 175] },
         columnStyles: Object.fromEntries(

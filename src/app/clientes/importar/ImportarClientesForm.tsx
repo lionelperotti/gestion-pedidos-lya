@@ -8,6 +8,7 @@ import {
   aplicarImportacionClientes,
   type FilaImportacionCliente,
   type FilaPreviewCliente,
+  type ResultadoImportacionClientes,
 } from "./actions";
 
 export default function ImportarClientesForm() {
@@ -16,9 +17,7 @@ export default function ImportarClientesForm() {
   const [cargando, setCargando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resultado, setResultado] = useState<{ creados: number; actualizados: number } | null>(
-    null
-  );
+  const [resultado, setResultado] = useState<ResultadoImportacionClientes | null>(null);
 
   async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
@@ -119,8 +118,12 @@ export default function ImportarClientesForm() {
       setResultado(res);
       setPreview(null);
       router.refresh();
-    } catch {
-      setError("Ocurrió un error al aplicar los cambios.");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? `Ocurrió un error al aplicar los cambios: ${e.message}`
+          : "Ocurrió un error al aplicar los cambios."
+      );
     } finally {
       setAplicando(false);
     }
@@ -159,10 +162,26 @@ export default function ImportarClientesForm() {
       )}
 
       {resultado && (
-        <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
-          Listo: {resultado.creados} cliente(s) creado(s), {resultado.actualizados}{" "}
-          actualizado(s).
-        </p>
+        <div className="space-y-2">
+          <p className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+            Listo: {resultado.creados} cliente(s) creado(s), {resultado.actualizados}{" "}
+            actualizado(s).
+          </p>
+          {resultado.errores.length > 0 && (
+            <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p className="mb-1 font-medium">
+                {resultado.errores.length} fila(s) no se pudieron guardar:
+              </p>
+              <ul className="list-disc space-y-0.5 pl-5">
+                {resultado.errores.map((err, i) => (
+                  <li key={i}>
+                    Fila {err.fila}: {err.mensaje}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
 
       {preview && (

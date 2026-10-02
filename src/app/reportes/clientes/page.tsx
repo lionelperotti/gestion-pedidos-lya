@@ -72,20 +72,15 @@ export default async function ReporteClientesPage({
             titulo="Ventas por Cliente"
             nombreArchivo="ventas-por-cliente"
             columnas={[
-              { header: "Cliente", accessor: (f: (typeof filas)[number]) => f.nombre },
-              {
-                header: "Pedidos",
-                accessor: (f: (typeof filas)[number]) => f.cantidadPedidos,
-                alineacionDerecha: true,
-              },
-              {
-                header: "Total",
-                accessor: (f: (typeof filas)[number]) =>
-                  f.total.toLocaleString("es-AR", { maximumFractionDigits: 2 }),
-                alineacionDerecha: true,
-              },
+              { header: "Cliente" },
+              { header: "Pedidos", alineacionDerecha: true },
+              { header: "Total", alineacionDerecha: true },
             ]}
-            filas={filas}
+            filas={filas.map((f) => [
+              f.nombre,
+              f.cantidadPedidos,
+              f.total.toLocaleString("es-AR", { maximumFractionDigits: 2 }),
+            ])}
           />
         </div>
 
