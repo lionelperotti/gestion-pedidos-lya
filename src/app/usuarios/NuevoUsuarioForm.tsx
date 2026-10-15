@@ -27,9 +27,13 @@ export default function NuevoUsuarioForm({ perfiles }: { perfiles: Perfil[] }) {
     setEnviando(true);
     const formData = new FormData(e.currentTarget);
     try {
-      await crearUsuario(formData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ocurrió un error al crear el usuario.");
+      const resultado = await crearUsuario(formData);
+      if (resultado?.error) {
+        setError(resultado.error);
+        setEnviando(false);
+      }
+    } catch {
+      setError("No se pudo crear el usuario. Revisá que tu sesión siga activa e intentá de nuevo.");
       setEnviando(false);
     }
   }

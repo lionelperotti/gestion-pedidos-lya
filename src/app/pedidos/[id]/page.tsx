@@ -52,19 +52,27 @@ export default async function DetallePedidoPage({
             Pedido #{pedido.numero}
           </h1>
         </div>
-        {esPendiente ? (
-          <div className="flex gap-2">
-            <Link
-              href={`/pedidos/${pedido.id}/editar`}
-              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-            >
-              Editar
-            </Link>
-            <EliminarPedidoBoton pedidoId={pedido.id} />
-          </div>
-        ) : (
-          <CopiarPedidoBoton pedidoId={pedido.id} />
-        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Link
+            href={`/pedidos/${pedido.id}/ver`}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Ver / Imprimir
+          </Link>
+          {esPendiente ? (
+            <>
+              <Link
+                href={`/pedidos/${pedido.id}/editar`}
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+              >
+                Editar
+              </Link>
+              <EliminarPedidoBoton pedidoId={pedido.id} />
+            </>
+          ) : (
+            <CopiarPedidoBoton pedidoId={pedido.id} />
+          )}
+        </div>
       </header>
 
       <div className="mx-auto max-w-2xl px-6 py-8">

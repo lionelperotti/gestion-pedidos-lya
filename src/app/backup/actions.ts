@@ -26,6 +26,9 @@ export async function generarBackupCompleto() {
     pedidos,
     pedidoItems,
     lotes,
+    resumenesCuenta,
+    comprobantesCuenta,
+    aliasClientes,
   ] = await Promise.all([
     prisma.perfil.findMany(),
     prisma.usuario.findMany(),
@@ -39,6 +42,9 @@ export async function generarBackupCompleto() {
     prisma.pedido.findMany(),
     prisma.pedidoItem.findMany(),
     prisma.lote.findMany(),
+    prisma.resumenCuenta.findMany(),
+    prisma.comprobanteCuenta.findMany(),
+    prisma.aliasCliente.findMany(),
   ]);
 
   return {
@@ -74,6 +80,14 @@ export async function generarBackupCompleto() {
         descuento: aNumero(i.descuento),
       })),
       lotes,
+      resumenesCuenta,
+      comprobantesCuenta: comprobantesCuenta.map((c) => ({
+        ...c,
+        importe: aNumero(c.importe),
+        aCuenta: aNumero(c.aCuenta),
+        totalACobrar: aNumero(c.totalACobrar),
+      })),
+      aliasClientes,
     },
   };
 }

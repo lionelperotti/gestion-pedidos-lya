@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { actualizarProveedor } from "../actions";
+import FormAccion from "@/components/FormAccion";
 
 export default async function EditarProveedorPage({
   params,
@@ -34,7 +35,7 @@ export default async function EditarProveedorPage({
       </header>
 
       <div className="mx-auto max-w-md px-6 py-8">
-        <form action={actualizarConId} className="space-y-5">
+        <FormAccion action={actualizarConId} textoBoton="Guardar cambios">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Nombre
@@ -109,13 +110,7 @@ export default async function EditarProveedorPage({
             />
             Proveedor activo
           </label>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
-          >
-            Guardar cambios
-          </button>
-        </form>
+        </FormAccion>
       </div>
     </main>
   );

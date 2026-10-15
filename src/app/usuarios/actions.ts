@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { esErrorDeDuplicado, type ResultadoAccion } from "@/lib/errores";
 
-export async function crearUsuario(formData: FormData) {
+export async function crearUsuario(formData: FormData): Promise<ResultadoAccion> {
   await requireAdmin();
 
   const nombre = String(formData.get("nombre") ?? "").trim();
@@ -15,18 +16,28 @@ export async function crearUsuario(formData: FormData) {
   const perfilId = String(formData.get("perfilId") ?? "");
 
   if (!nombre || !email || !password || !perfilId) {
-    throw new Error("Todos los campos son obligatorios.");
+    return { error: "Todos los campos son obligatorios." };
   }
 
   if (password.length < 6) {
-    throw new Error("La contraseña debe tener al menos 6 caracteres.");
+    return { error: "La contraseña debe tener al menos 6 caracteres." };
+  }
+
+  const existente = await prisma.usuario.findUnique({ where: { email } });
+  if (existente) {
+    return { error: `Ya existe un usuario con el email ${email}.` };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await prisma.usuario.create({
-    data: { nombre, email, passwordHash, perfilId, estado: "ACTIVO" },
-  });
+  try {
+    await prisma.usuario.create({
+      data: { nombre, email, passwordHash, perfilId, estado: "ACTIVO" },
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) return { error: `Ya existe un usuario con el email ${email}.` };
+    return { error: "No se pudo crear el usuario. Intentá de nuevo." };
+  }
 
   revalidatePath("/usuarios");
   redirect("/usuarios");
@@ -56,7 +67,10 @@ export async function rechazarUsuario(usuarioId: string) {
   revalidatePath("/usuarios");
 }
 
-export async function actualizarUsuario(usuarioId: string, formData: FormData) {
+export async function actualizarUsuario(
+  usuarioId: string,
+  formData: FormData
+): Promise<ResultadoAccion> {
   await requireAdmin();
 
   const nombre = String(formData.get("nombre") ?? "").trim();
@@ -66,7 +80,14 @@ export async function actualizarUsuario(usuarioId: string, formData: FormData) {
   const activo = formData.get("activo") === "on";
 
   if (!nombre || !email || !perfilId) {
-    throw new Error("Nombre, email y perfil son obligatorios.");
+    return { error: "Nombre, email y perfil son obligatorios." };
+  }
+
+  const otroConEseEmail = await prisma.usuario.findFirst({
+    where: { email, NOT: { id: usuarioId } },
+  });
+  if (otroConEseEmail) {
+    return { error: `Ya existe otro usuario con el email ${email}.` };
   }
 
   const data: {
@@ -80,15 +101,20 @@ export async function actualizarUsuario(usuarioId: string, formData: FormData) {
   // Solo actualiza la contraseña si se cargó una nueva
   if (password) {
     if (password.length < 6) {
-      throw new Error("La contraseña debe tener al menos 6 caracteres.");
+      return { error: "La contraseña debe tener al menos 6 caracteres." };
     }
     data.passwordHash = await bcrypt.hash(password, 10);
   }
 
-  await prisma.usuario.update({
-    where: { id: usuarioId },
-    data,
-  });
+  try {
+    await prisma.usuario.update({
+      where: { id: usuarioId },
+      data,
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) return { error: `Ya existe otro usuario con el email ${email}.` };
+    return { error: "No se pudo guardar el usuario. Intentá de nuevo." };
+  }
 
   revalidatePath("/usuarios");
   redirect("/usuarios");

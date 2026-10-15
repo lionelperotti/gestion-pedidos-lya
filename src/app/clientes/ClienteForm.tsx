@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import FormAccion from "@/components/FormAccion";
+import type { ResultadoAccion } from "@/lib/errores";
 
 interface ProvinciaConLocalidades {
   id: string;
@@ -32,7 +34,7 @@ export default function ClienteForm({
   rubros,
   valoresIniciales,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ResultadoAccion>;
   provincias: ProvinciaConLocalidades[];
   rubros: RubroOpcion[];
   valoresIniciales?: Partial<ClienteFormValues>;
@@ -46,7 +48,11 @@ export default function ClienteForm({
   );
 
   return (
-    <form action={action} className="space-y-5">
+    <FormAccion
+      action={action}
+      textoBoton="Guardar"
+      claseBoton="w-full rounded-lg bg-blue-700 px-4 py-3.5 text-base font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+    >
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">Nombre</label>
         <input
@@ -195,12 +201,6 @@ export default function ClienteForm({
         </select>
       </div>
 
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-blue-700 px-4 py-3.5 text-base font-semibold text-white hover:bg-blue-800"
-      >
-        Guardar
-      </button>
-    </form>
+    </FormAccion>
   );
 }

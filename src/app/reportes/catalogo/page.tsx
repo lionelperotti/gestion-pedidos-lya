@@ -63,18 +63,18 @@ export default async function ReporteCatalogoPage({
               { header: "Nombre" },
               { header: "Proveedor" },
               { header: "Marca" },
-              { header: "Precio S/IVA", alineacionDerecha: true },
-              { header: "IVA", alineacionDerecha: true },
-              { header: "Precio Final", alineacionDerecha: true },
+              { header: "Precio S/IVA", tipo: "moneda" },
+              { header: "IVA %", tipo: "porcentaje" },
+              { header: "Precio Final", tipo: "moneda" },
             ]}
             filas={filas.map((f) => [
               f.codigo,
               f.nombre,
               f.proveedor,
               f.marca,
-              f.precioSinIva.toLocaleString("es-AR"),
-              `${f.iva}%`,
-              f.precioFinal.toLocaleString("es-AR"),
+              f.precioSinIva,
+              f.iva,
+              f.precioFinal,
             ])}
           />
         </div>

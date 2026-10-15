@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { crearLocalidad } from "../actions";
+import FormAccion from "@/components/FormAccion";
 
 export default async function NuevaLocalidadPage({
   searchParams,
@@ -28,7 +29,7 @@ export default async function NuevaLocalidadPage({
             No hay provincias cargadas. Creá una primero en la sección Provincias.
           </p>
         ) : (
-          <form action={crearLocalidad} className="space-y-5">
+          <FormAccion action={crearLocalidad} textoBoton="Crear localidad">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">
                 Provincia
@@ -60,13 +61,7 @@ export default async function NuevaLocalidadPage({
                 className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
-            >
-              Crear localidad
-            </button>
-          </form>
+        </FormAccion>
         )}
       </div>
     </main>

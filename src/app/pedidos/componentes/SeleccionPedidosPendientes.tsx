@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { crearOAgregarLote } from "../../lotes/actions";
 import { eliminarPedido } from "../actions";
+import { useNavegacionTeclado } from "@/lib/useNavegacionTeclado";
+import { normalizarNombre } from "@/lib/errores";
 
 interface PedidoResumen {
   id: string;
@@ -28,8 +31,30 @@ export default function SeleccionPedidosPendientes({
   const [error, setError] = useState<string | null>(null);
   const [pendiente, startTransition] = useTransition();
   const [borrandoId, setBorrandoId] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+  const router = useRouter();
 
-  const totalGeneral = pedidos.reduce((acc, p) => acc + p.total, 0);
+  // Filtro por cliente (o por número de pedido)
+  const pedidosFiltrados = useMemo(() => {
+    const texto = normalizarNombre(busqueda);
+    if (!texto) return pedidos;
+    return pedidos.filter(
+      (p) =>
+        normalizarNombre(p.clienteNombre).includes(texto) ||
+        String(p.numero) === busqueda.trim().replace("#", "")
+    );
+  }, [busqueda, pedidos]);
+
+  const { indiceActivo: navIndice, onKeyDown: navKeyDown, contenedorRef: navRef, reiniciar: navReiniciar } = useNavegacionTeclado(
+    pedidosFiltrados,
+    (p) => router.push(`/pedidos/${p.id}`),
+    busqueda.trim() !== ""
+  );
+
+  const totalGeneral = pedidosFiltrados.reduce((acc, p) => acc + p.total, 0);
+  const filtrando = pedidosFiltrados.length !== pedidos.length;
+  const todosSeleccionados =
+    pedidosFiltrados.length > 0 && pedidosFiltrados.every((p) => seleccionados.has(p.id));
 
   function toggle(id: string) {
     setSeleccionados((prev) => {
@@ -40,10 +65,17 @@ export default function SeleccionPedidosPendientes({
     });
   }
 
+  // "Seleccionar todos" actúa sobre los pedidos que se están viendo (los filtrados)
   function toggleTodos() {
-    setSeleccionados((prev) =>
-      prev.size === pedidos.length ? new Set() : new Set(pedidos.map((p) => p.id))
-    );
+    setSeleccionados((prev) => {
+      const nuevo = new Set(prev);
+      if (todosSeleccionados) {
+        pedidosFiltrados.forEach((p) => nuevo.delete(p.id));
+      } else {
+        pedidosFiltrados.forEach((p) => nuevo.add(p.id));
+      }
+      return nuevo;
+    });
   }
 
   function handleCrearLote() {
@@ -78,22 +110,40 @@ export default function SeleccionPedidosPendientes({
   return (
     <div>
       {pedidos.length > 0 && (
-        <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+        <>
           <input
-            type="checkbox"
-            checked={seleccionados.size === pedidos.length}
-            onChange={toggleTodos}
-            className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
+            type="text"
+            value={busqueda}
+            onChange={(e) => {
+              setBusqueda(e.target.value);
+              navReiniciar();
+            }}
+            onKeyDown={navKeyDown}
+            placeholder="Buscar por cliente... (↑ ↓ y Enter para abrir un pedido)"
+            className="mb-3 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
           />
-          Seleccionar todos
-        </label>
+          <label className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={todosSeleccionados}
+              onChange={toggleTodos}
+              className="h-4 w-4 rounded border-slate-300 text-blue-700 focus:ring-blue-500"
+            />
+            Seleccionar todos{filtrando ? " los que se ven" : ""}
+          </label>
+        </>
       )}
 
-      <div className="space-y-3">
-        {pedidos.map((pedido) => (
+      <div className="space-y-3" ref={navRef}>
+        {pedidosFiltrados.map((pedido, indice) => (
           <div
             key={pedido.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+            data-nav-index={indice}
+            className={`flex flex-wrap items-center gap-3 rounded-lg border bg-white p-4 shadow-sm ${
+              busqueda.trim() !== "" && navIndice === indice
+                ? "border-blue-500 ring-2 ring-blue-300"
+                : "border-slate-200"
+            }`}
           >
             <input
               type="checkbox"
@@ -115,7 +165,7 @@ export default function SeleccionPedidosPendientes({
             </span>
             <div className="flex w-full gap-2 sm:w-auto">
               <Link
-                href={`/pedidos/${pedido.id}/ver`}
+                href={`/pedidos/${pedido.id}`}
                 className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-center text-xs font-medium text-slate-700 hover:bg-slate-50 sm:flex-none"
               >
                 Ver
@@ -134,12 +184,18 @@ export default function SeleccionPedidosPendientes({
         {pedidos.length === 0 && (
           <p className="py-12 text-center text-slate-500">No hay pedidos pendientes.</p>
         )}
+        {pedidos.length > 0 && pedidosFiltrados.length === 0 && (
+          <p className="py-12 text-center text-slate-500">
+            Ningún pedido coincide con esa búsqueda.
+          </p>
+        )}
       </div>
 
       {pedidos.length > 0 && (
         <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
           <span className="text-slate-600">
-            Total: {pedidos.length} pedido{pedidos.length !== 1 ? "s" : ""}
+            Total: {filtrando ? `${pedidosFiltrados.length} de ${pedidos.length}` : pedidos.length}{" "}
+            pedido{pedidos.length !== 1 ? "s" : ""}
           </span>
           <span className="font-semibold text-blue-700">
             ${totalGeneral.toLocaleString("es-AR", { maximumFractionDigits: 2 })}

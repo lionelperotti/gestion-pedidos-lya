@@ -52,6 +52,13 @@ export default function ImportarClientesForm() {
         "categoria",
         "categoría",
         "cuit",
+        "email",
+        "e-mail",
+        "mail",
+        "correo",
+        "telefono",
+        "teléfono",
+        "tel",
       ];
       const primeraFila = filasCrudas[0].map((c) => String(c).trim().toLowerCase());
       const tieneEncabezados = primeraFila.some((c) => encabezadosPosibles.includes(c));
@@ -66,6 +73,12 @@ export default function ImportarClientesForm() {
         const idxProvincia = primeraFila.findIndex((c) => c === "provincia");
         const idxCategoria = primeraFila.findIndex((c) => ["categoria", "categoría"].includes(c));
         const idxCuit = primeraFila.findIndex((c) => c === "cuit");
+        const idxEmail = primeraFila.findIndex((c) =>
+          ["email", "e-mail", "mail", "correo"].includes(c)
+        );
+        const idxTelefono = primeraFila.findIndex((c) =>
+          ["telefono", "teléfono", "tel"].includes(c)
+        );
 
         filas = filasCrudas.slice(1).map((fila) => ({
           codigoCliente: String(fila[idxCodigo] ?? "").trim(),
@@ -75,9 +88,12 @@ export default function ImportarClientesForm() {
           provincia: String(fila[idxProvincia] ?? "").trim(),
           categoria: String(fila[idxCategoria] ?? "").trim(),
           cuit: String(fila[idxCuit] ?? "").trim(),
+          email: idxEmail >= 0 ? String(fila[idxEmail] ?? "").trim() : "",
+          telefono: idxTelefono >= 0 ? String(fila[idxTelefono] ?? "").trim() : "",
         }));
       } else {
         // Sin encabezados: Código, Nombre, Domicilio, Localidad, Provincia, Categoría, CUIT
+        // y, opcionales, Email y Teléfono
         filas = filasCrudas.map((fila) => ({
           codigoCliente: String(fila[0] ?? "").trim(),
           nombre: String(fila[1] ?? "").trim(),
@@ -86,6 +102,8 @@ export default function ImportarClientesForm() {
           provincia: String(fila[4] ?? "").trim(),
           categoria: String(fila[5] ?? "").trim(),
           cuit: String(fila[6] ?? "").trim(),
+          email: String(fila[7] ?? "").trim(),
+          telefono: String(fila[8] ?? "").trim(),
         }));
       }
 
@@ -139,11 +157,14 @@ export default function ImportarClientesForm() {
         <p className="mb-3 text-sm text-slate-600">
           El Excel puede tener una fila de encabezados (
           <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-            Codigo, Nombre, Domicilio, Localidad, Provincia, Categoria, CUIT
+            Codigo, Nombre, Domicilio, Localidad, Provincia, Categoria, CUIT, Email,
+            Telefono
           </code>
           ) o directamente empezar con los datos, siempre en ese orden de columnas.
-          La Provincia y la Localidad tienen que existir ya cargadas en el sistema. Si
-          el CUIT ya existe, se actualiza el cliente; si no existe, se crea uno nuevo.
+          Email y Teléfono son opcionales: si vienen cargados se guardan (al crear o al
+          actualizar) y si vienen vacíos no se tocan. La Provincia y la Localidad tienen
+          que existir ya cargadas en el sistema. El código de cliente no se puede repetir.
+          Si el CUIT ya existe, se actualiza el cliente; si no existe, se crea uno nuevo.
         </p>
         <input
           type="file"
@@ -212,6 +233,8 @@ export default function ImportarClientesForm() {
                   <th className="px-3 py-2 font-medium">Provincia</th>
                   <th className="px-3 py-2 font-medium">Localidad</th>
                   <th className="px-3 py-2 font-medium">Cat.</th>
+                  <th className="px-3 py-2 font-medium">Email</th>
+                  <th className="px-3 py-2 font-medium">Teléfono</th>
                   <th className="px-3 py-2 font-medium">Detalle</th>
                 </tr>
               </thead>
@@ -238,6 +261,8 @@ export default function ImportarClientesForm() {
                     <td className="px-3 py-2 text-slate-700">{fila.provincia}</td>
                     <td className="px-3 py-2 text-slate-700">{fila.localidad}</td>
                     <td className="px-3 py-2 text-slate-700">{fila.categoria}</td>
+                    <td className="px-3 py-2 text-slate-700">{fila.email}</td>
+                    <td className="px-3 py-2 text-slate-700">{fila.telefono}</td>
                     <td className="px-3 py-2 text-red-600">{fila.mensaje}</td>
                   </tr>
                 ))}

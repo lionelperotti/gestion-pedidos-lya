@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { esErrorDeDuplicado } from "@/lib/errores";
 
 export interface FilaImportacion {
   codigoProveedor: string;
@@ -147,8 +148,13 @@ export async function aplicarImportacionMasiva(
         });
         creados++;
       }
-    } catch {
-      errores.push({ fila: fila.fila, mensaje: "No se pudo guardar esta fila (error inesperado)." });
+    } catch (e) {
+      errores.push({
+        fila: fila.fila,
+        mensaje: esErrorDeDuplicado(e)
+          ? `El código "${fila.codigoProveedor}" ya existe en este proveedor (conflicto al guardar).`
+          : "No se pudo guardar esta fila (error inesperado).",
+      });
     }
   }
 

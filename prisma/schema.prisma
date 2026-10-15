@@ -44,6 +44,7 @@ model Usuario {
   clientes      Cliente[] // Clientes asociados a este usuario cuando su perfil es "Vendedor"
   pedidos       Pedido[]  // Pedidos cargados por este usuario cuando su perfil es "Vendedor"
   lotes         Lote[]    // Lotes armados por este usuario
+  resumenesImportados ResumenCuenta[]
   creadoEn      DateTime  @default(now())
   actualizadoEn DateTime  @updatedAt
 }
@@ -94,6 +95,9 @@ model Producto {
   itemsPedido         PedidoItem[]
   creadoEn            DateTime     @default(now())
   actualizadoEn       DateTime     @updatedAt
+
+  // El código no se puede repetir dentro de un mismo proveedor (varios productos sin código sí se permiten)
+  @@unique([proveedorId, codigoProveedor])
 }
 
 // ---------------------------------------------------------
@@ -146,7 +150,7 @@ model Cliente {
   telefono      String?
   email         String?
   direccion     String?
-  codigoCliente String
+  codigoCliente String    @unique
   cuit          String    @unique
   categoria     CategoriaCliente
   localidadId   String?
@@ -158,6 +162,8 @@ model Cliente {
   vendedorId    String
   vendedor      Usuario   @relation(fields: [vendedorId], references: [id])
   pedidos       Pedido[]
+  comprobantes  ComprobanteCuenta[]
+  alias         AliasCliente[]
   creadoEn      DateTime  @default(now())
   actualizadoEn DateTime  @updatedAt
 }
@@ -221,4 +227,48 @@ model PedidoItem {
   iva            Decimal  @default(21) @db.Decimal(5, 2) // porcentaje, editable por línea
   precioUnitario Decimal  @db.Decimal(10, 2) // precio final = precioSinIva * (1 + iva/100)
   descuento      Decimal  @default(0) @db.Decimal(5, 2) // porcentaje, ej: 7.00
+}
+
+// ---------------------------------------------------------
+// Resúmenes de cuenta de la distribuidora (deuda por cliente)
+// ---------------------------------------------------------
+
+model ResumenCuenta {
+  id             String              @id @default(cuid())
+  fecha          DateTime            @db.Date // fecha del resumen, la informa quien lo importa
+  nombreArchivo  String?
+  importadoPorId String
+  importadoPor   Usuario             @relation(fields: [importadoPorId], references: [id])
+  comprobantes   ComprobanteCuenta[]
+  creadoEn       DateTime            @default(now())
+}
+
+model ComprobanteCuenta {
+  id              String        @id @default(cuid())
+  resumenId       String
+  resumen         ResumenCuenta @relation(fields: [resumenId], references: [id], onDelete: Cascade)
+  clienteId       String?       // vacío si la fila no se pudo asignar a un cliente
+  cliente         Cliente?      @relation(fields: [clienteId], references: [id])
+  nombreEnResumen String        // nombre tal como vino en el Excel de la distribuidora
+  codigoCliente   String?       // código del cliente al momento de importar
+  comprobante     String        // "FACT. O REM"
+  fecha           DateTime?     @db.Date
+  importe         Decimal       @db.Decimal(14, 2)
+  aCuenta         Decimal       @db.Decimal(14, 2)
+  totalACobrar    Decimal       @db.Decimal(14, 2)
+
+  @@index([resumenId])
+  @@index([clienteId])
+}
+
+// Recuerda qué cliente corresponde a cada nombre que usa la distribuidora,
+// para que en el próximo resumen ya venga asignado.
+model AliasCliente {
+  id                String   @id @default(cuid())
+  nombreNormalizado String   @unique
+  nombreOriginal    String
+  clienteId         String
+  cliente           Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  creadoEn          DateTime @default(now())
+  actualizadoEn     DateTime @updatedAt
 }

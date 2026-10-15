@@ -5,10 +5,29 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
+import { esErrorDeDuplicado, type ResultadoAccion } from "@/lib/errores";
 
 const CATEGORIAS_VALIDAS = ["RI", "MO", "EX", "CF"] as const;
 
-function leerDatosCliente(formData: FormData) {
+interface DatosCliente {
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  codigoCliente: string;
+  cuit: string;
+  categoria: (typeof CATEGORIAS_VALIDAS)[number];
+  provinciaId: string | null;
+  localidadId: string | null;
+  rubroId: string | null;
+}
+
+type LecturaCliente = { error: string; datos?: undefined } | { error?: undefined; datos: DatosCliente };
+
+async function leerYValidarCliente(
+  formData: FormData,
+  excluirId?: string
+): Promise<LecturaCliente> {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const telefono = String(formData.get("telefono") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -20,59 +39,96 @@ function leerDatosCliente(formData: FormData) {
   const localidadId = String(formData.get("localidadId") ?? "").trim();
   const rubroId = String(formData.get("rubroId") ?? "").trim();
 
-  if (!nombre) throw new Error("El nombre del cliente es obligatorio.");
-  if (!codigoCliente) throw new Error("El código de cliente es obligatorio.");
-  if (!cuit) throw new Error("El CUIT es obligatorio.");
+  if (!nombre) return { error: "El nombre del cliente es obligatorio." };
+  if (!codigoCliente) return { error: "El código de cliente es obligatorio." };
+  if (!cuit) return { error: "El CUIT es obligatorio." };
   if (!CATEGORIAS_VALIDAS.includes(categoria as (typeof CATEGORIAS_VALIDAS)[number])) {
-    throw new Error("Tenés que seleccionar una categoría válida (RI, MO, EX o CF).");
+    return { error: "Tenés que seleccionar una categoría válida (RI, MO, EX o CF)." };
+  }
+
+  const mismoCodigo = await prisma.cliente.findFirst({
+    where: { codigoCliente, ...(excluirId ? { NOT: { id: excluirId } } : {}) },
+  });
+  if (mismoCodigo) {
+    return {
+      error: `El código de cliente "${codigoCliente}" ya lo tiene el cliente "${mismoCodigo.nombre}".`,
+    };
+  }
+
+  const mismoCuit = await prisma.cliente.findFirst({
+    where: { cuit, ...(excluirId ? { NOT: { id: excluirId } } : {}) },
+  });
+  if (mismoCuit) {
+    return { error: `Ya existe un cliente con el CUIT ${cuit}: "${mismoCuit.nombre}".` };
   }
 
   return {
-    nombre,
-    telefono: telefono || null,
-    email: email || null,
-    direccion: direccion || null,
-    codigoCliente,
-    cuit,
-    categoria: categoria as (typeof CATEGORIAS_VALIDAS)[number],
-    provinciaId: provinciaId || null,
-    localidadId: localidadId || null,
-    rubroId: rubroId || null,
+    datos: {
+      nombre,
+      telefono: telefono || null,
+      email: email || null,
+      direccion: direccion || null,
+      codigoCliente,
+      cuit,
+      categoria: categoria as (typeof CATEGORIAS_VALIDAS)[number],
+      provinciaId: provinciaId || null,
+      localidadId: localidadId || null,
+      rubroId: rubroId || null,
+    },
   };
 }
 
-export async function crearCliente(formData: FormData) {
+export async function crearCliente(formData: FormData): Promise<ResultadoAccion> {
   const sesionUsuario = await getSessionUsuario();
-  if (!sesionUsuario) throw new Error("No autenticado.");
+  if (!sesionUsuario) return { error: "Tu sesión venció. Volvé a ingresar e intentá de nuevo." };
   const usuario = sesionUsuario as unknown as UsuarioSesion;
 
-  const datos = leerDatosCliente(formData);
+  const lectura = await leerYValidarCliente(formData);
+  if (lectura.datos === undefined) return { error: lectura.error };
 
-  await prisma.cliente.create({
-    data: { ...datos, vendedorId: usuario.id },
-  });
+  try {
+    await prisma.cliente.create({
+      data: { ...lectura.datos, vendedorId: usuario.id },
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) {
+      return { error: "Ya existe un cliente con ese CUIT o con ese código de cliente." };
+    }
+    return { error: "No se pudo crear el cliente. Intentá de nuevo." };
+  }
 
   revalidatePath("/clientes");
   redirect("/clientes");
 }
 
-export async function actualizarCliente(clienteId: string, formData: FormData) {
+export async function actualizarCliente(
+  clienteId: string,
+  formData: FormData
+): Promise<ResultadoAccion> {
   const sesionUsuario = await getSessionUsuario();
-  if (!sesionUsuario) throw new Error("No autenticado.");
+  if (!sesionUsuario) return { error: "Tu sesión venció. Volvé a ingresar e intentá de nuevo." };
   const usuario = sesionUsuario as unknown as UsuarioSesion;
 
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
-  if (!cliente) throw new Error("Cliente no encontrado.");
+  if (!cliente) return { error: "El cliente ya no existe." };
   if (usuario.perfil !== "Administrador" && cliente.vendedorId !== usuario.id) {
-    throw new Error("No tenés permiso para editar este cliente.");
+    return { error: "No tenés permiso para editar este cliente." };
   }
 
-  const datos = leerDatosCliente(formData);
+  const lectura = await leerYValidarCliente(formData, clienteId);
+  if (lectura.datos === undefined) return { error: lectura.error };
 
-  await prisma.cliente.update({
-    where: { id: clienteId },
-    data: datos,
-  });
+  try {
+    await prisma.cliente.update({
+      where: { id: clienteId },
+      data: lectura.datos,
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) {
+      return { error: "Ya existe un cliente con ese CUIT o con ese código de cliente." };
+    }
+    return { error: "No se pudo guardar el cliente. Intentá de nuevo." };
+  }
 
   revalidatePath("/clientes");
   redirect("/clientes");

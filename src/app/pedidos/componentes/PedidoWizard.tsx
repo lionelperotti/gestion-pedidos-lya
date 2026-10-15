@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { crearPedido, actualizarPedido } from "../actions";
+import { useNavegacionTeclado } from "@/lib/useNavegacionTeclado";
 
 interface Cliente {
   id: string;
@@ -41,6 +42,42 @@ interface ItemEstado {
 
 type Paso = "cliente" | "marca" | "productos" | "confirmar";
 
+function DatosCliente({
+  cliente,
+  compacto = false,
+}: {
+  cliente?: Cliente;
+  compacto?: boolean;
+}) {
+  if (!cliente) return null;
+  const partes = [
+    cliente.cuit ? `CUIT: ${cliente.cuit}` : null,
+    cliente.direccion,
+    cliente.localidad,
+    cliente.provincia,
+  ].filter(Boolean);
+
+  if (compacto) {
+    return (
+      <span className="text-sm text-slate-600">
+        {cliente.nombre}
+        {partes.length > 0 && (
+          <span className="block text-xs text-slate-400">{partes.join(" · ")}</span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+      <p>
+        Cliente: <span className="font-semibold">{cliente.nombre}</span>
+      </p>
+      {partes.length > 0 && <p className="mt-0.5 text-xs text-blue-700">{partes.join(" · ")}</p>}
+    </div>
+  );
+}
+
 export default function PedidoWizard({
   clientes,
   marcas,
@@ -65,7 +102,7 @@ export default function PedidoWizard({
   };
 }) {
   const router = useRouter();
-  const [paso, setPaso] = useState<Paso>(modo === "editar" ? "marca" : "cliente");
+  const [paso, setPasoInterno] = useState<Paso>(modo === "editar" ? "marca" : "cliente");
   const [clienteId, setClienteId] = useState(clienteInicial?.id ?? "");
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | undefined>(
     clienteInicial
@@ -112,6 +149,44 @@ export default function PedidoWizard({
     );
   }, [busquedaProducto, productosVisibles]);
 
+  // Navegación por teclado en los buscadores (flechas + Enter)
+  const navCliente = useNavegacionTeclado(clientesFiltrados, (c) => elegirCliente(c));
+  const navProducto = useNavegacionTeclado(
+    productosFiltrados,
+    (p) => setProductoAmpliadoIndex(productosFiltrados.findIndex((x) => x.id === p.id)),
+    busquedaProducto.trim() !== ""
+  );
+
+  // Cada vez que cambia el paso o la marca, la pantalla vuelve siempre al principio
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [paso, marcaId]);
+
+  // Mantener viva la sesión mientras se está trabajando en el pedido. Armar un pedido
+  // no consulta al servidor hasta confirmar, y sin esto la sesión (1 hora sin
+  // actividad) podía vencerse a mitad de la carga. Solo se renueva mientras haya
+  // actividad reciente, para no dejar una sesión abierta en una pestaña abandonada.
+  const ultimaActividad = useRef(0);
+  useEffect(() => {
+    ultimaActividad.current = Date.now();
+    const marcar = () => {
+      ultimaActividad.current = Date.now();
+    };
+    const eventos = ["pointerdown", "keydown", "scroll", "touchstart"] as const;
+    eventos.forEach((ev) => window.addEventListener(ev, marcar, { passive: true }));
+    const intervalo = window.setInterval(() => {
+      if (Date.now() - ultimaActividad.current < 15 * 60 * 1000) {
+        fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" }).catch(
+          () => {}
+        );
+      }
+    }, 5 * 60 * 1000);
+    return () => {
+      eventos.forEach((ev) => window.removeEventListener(ev, marcar));
+      window.clearInterval(intervalo);
+    };
+  }, []);
+
   const itemsCargados = useMemo(
     () => Object.values(items).filter((i) => i.cantidad > 0),
     [items]
@@ -135,36 +210,6 @@ export default function PedidoWizard({
 
   function calcularSubtotal(item: ItemEstado, precio: number) {
     return precio * item.cantidad * (1 - (item.descuento || 0) / 100);
-  }
-
-  function DatosCliente({ compacto = false }: { compacto?: boolean }) {
-    if (!clienteSeleccionado) return null;
-    const partes = [
-      clienteSeleccionado.cuit ? `CUIT: ${clienteSeleccionado.cuit}` : null,
-      clienteSeleccionado.direccion,
-      clienteSeleccionado.localidad,
-      clienteSeleccionado.provincia,
-    ].filter(Boolean);
-
-    if (compacto) {
-      return (
-        <span className="text-sm text-slate-600">
-          {clienteSeleccionado.nombre}
-          {partes.length > 0 && (
-            <span className="block text-xs text-slate-400">{partes.join(" · ")}</span>
-          )}
-        </span>
-      );
-    }
-
-    return (
-      <div className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-        <p>
-          Cliente: <span className="font-semibold">{clienteSeleccionado.nombre}</span>
-        </p>
-        {partes.length > 0 && <p className="mt-0.5 text-xs text-blue-700">{partes.join(" · ")}</p>}
-      </div>
-    );
   }
 
   const total = useMemo(() => {
@@ -196,6 +241,14 @@ export default function PedidoWizard({
     actualizarItem(productoId, { cantidad: Math.max(0, actual + delta) });
   }
 
+  // Al cambiar de paso se borra el texto del buscador de productos, para que no
+  // quede filtrado lo que se escribió en otra pantalla.
+  function setPaso(nuevo: Paso) {
+    setPasoInterno(nuevo);
+    setBusquedaProducto("");
+    navProducto.reiniciar();
+  }
+
   function elegirCliente(cliente: Cliente) {
     setClienteId(cliente.id);
     setClienteSeleccionado(cliente);
@@ -210,6 +263,20 @@ export default function PedidoWizard({
       router.push("/");
     }
   }
+
+  async function sesionVigente(): Promise<boolean | null> {
+    try {
+      const r = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+      if (!r.ok) return null;
+      const data = await r.json();
+      return Boolean(data && data.user);
+    } catch {
+      return null;
+    }
+  }
+
+  const MENSAJE_SESION_VENCIDA =
+    "Tu sesión venció. Abrí una pestaña nueva, ingresá de nuevo y volvé a esta pestaña (sin recargarla) para confirmar el pedido: lo que cargaste sigue acá.";
 
   async function handleEnviarFinal() {
     setError(null);
@@ -228,10 +295,17 @@ export default function PedidoWizard({
       return;
     }
 
+    // Antes de enviar, comprobamos que la sesión siga activa
+    if ((await sesionVigente()) === false) {
+      setError(MENSAJE_SESION_VENCIDA);
+      return;
+    }
+
     setEnviando(true);
     try {
+      let resultado;
       if (modo === "crear") {
-        await crearPedido({
+        resultado = await crearPedido({
           clienteId,
           items: itemsCargados,
           conFactura: conFactura === "si",
@@ -239,15 +313,25 @@ export default function PedidoWizard({
           observaciones,
         });
       } else if (pedidoId) {
-        await actualizarPedido(pedidoId, {
+        resultado = await actualizarPedido(pedidoId, {
           items: itemsCargados,
           conFactura: conFactura === "si",
           modalidadPago: modalidadPago as "CONTADO" | "CUENTA_CORRIENTE",
           observaciones,
         });
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ocurrió un error al guardar el pedido.");
+      if (resultado?.error) {
+        setError(resultado.error);
+        setEnviando(false);
+      }
+    } catch {
+      // El servidor respondió algo inesperado: lo más común es una sesión vencida
+      const vigente = await sesionVigente();
+      setError(
+        vigente === false
+          ? MENSAJE_SESION_VENCIDA
+          : "No se pudo guardar el pedido. Revisá tu conexión e intentá de nuevo."
+      );
       setEnviando(false);
     }
   }
@@ -271,17 +355,27 @@ export default function PedidoWizard({
           type="text"
           autoFocus
           value={busquedaCliente}
-          onChange={(e) => setBusquedaCliente(e.target.value)}
+          onChange={(e) => {
+            setBusquedaCliente(e.target.value);
+            navCliente.reiniciar();
+          }}
+          onKeyDown={navCliente.onKeyDown}
           placeholder="Escribí el nombre..."
           className="mb-4 w-full rounded-lg border border-slate-300 px-4 py-3 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
-        <div className="space-y-2">
-          {clientesFiltrados.map((cliente) => (
+        <div className="space-y-2" ref={navCliente.contenedorRef}>
+          {clientesFiltrados.map((cliente, indice) => (
             <button
               key={cliente.id}
               type="button"
+              data-nav-index={indice}
               onClick={() => elegirCliente(cliente)}
-              className="block w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-base font-medium text-slate-900 shadow-sm hover:border-blue-300 hover:bg-blue-50"
+              onMouseEnter={() => navCliente.activar(indice)}
+              className={`block w-full rounded-lg border bg-white px-4 py-3 text-left text-base font-medium text-slate-900 shadow-sm hover:border-blue-300 hover:bg-blue-50 ${
+                navCliente.indiceActivo === indice
+                  ? "border-blue-500 ring-2 ring-blue-300"
+                  : "border-slate-200"
+              }`}
             >
               {cliente.nombre}
             </button>
@@ -321,7 +415,7 @@ export default function PedidoWizard({
             Cancelar
           </button>
         </div>
-        <DatosCliente />
+        <DatosCliente cliente={clienteSeleccionado} />
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Elegí una marca</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <button
@@ -388,7 +482,7 @@ export default function PedidoWizard({
           >
             ← Marcas
           </button>
-          <DatosCliente compacto />
+          <DatosCliente cliente={clienteSeleccionado} compacto />
           <button
             type="button"
             onClick={cancelarCarga}
@@ -402,20 +496,32 @@ export default function PedidoWizard({
           <input
             type="text"
             value={busquedaProducto}
-            onChange={(e) => setBusquedaProducto(e.target.value)}
-            placeholder="Buscar por nombre o código..."
+            onChange={(e) => {
+              setBusquedaProducto(e.target.value);
+              navProducto.reiniciar();
+            }}
+            onKeyDown={navProducto.onKeyDown}
+            placeholder="Buscar por nombre o código... (↑ ↓ y Enter para elegir)"
             className="w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {productosFiltrados.map((producto) => {
+        <div
+          ref={navProducto.contenedorRef}
+          className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        >
+          {productosFiltrados.map((producto, indice) => {
             const item = items[producto.id];
             const cantidad = item?.cantidad ?? 0;
+            const destacado =
+              busquedaProducto.trim() !== "" && navProducto.indiceActivo === indice;
             return (
               <div
                 key={producto.id}
-                className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+                data-nav-index={indice}
+                className={`overflow-hidden rounded-lg border bg-white shadow-sm ${
+                  destacado ? "border-blue-500 ring-2 ring-blue-300" : "border-slate-200"
+                }`}
               >
                 <div
                   className="relative aspect-square cursor-pointer bg-slate-100"
@@ -633,7 +739,7 @@ export default function PedidoWizard({
           </button>
         </div>
         <h1 className="mt-1 text-lg font-bold text-slate-900">Confirmar pedido</h1>
-        <DatosCliente compacto />
+        <DatosCliente cliente={clienteSeleccionado} compacto />
       </div>
 
       <div className="p-4">

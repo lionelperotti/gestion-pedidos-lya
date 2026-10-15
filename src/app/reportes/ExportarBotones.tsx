@@ -2,9 +2,31 @@
 
 import { useState } from "react";
 
+export type TipoColumna = "texto" | "entero" | "moneda" | "porcentaje";
+
 export interface ColumnaReporte {
   header: string;
-  alineacionDerecha?: boolean;
+  /** Las columnas numéricas se guardan como números y van alineadas a la derecha. */
+  tipo?: TipoColumna;
+}
+
+const esNumerica = (tipo?: TipoColumna) => tipo !== undefined && tipo !== "texto";
+
+function formatearParaPdf(valor: string | number, tipo?: TipoColumna): string {
+  if (typeof valor !== "number") return String(valor);
+  switch (tipo) {
+    case "moneda":
+      return `$${valor.toLocaleString("es-AR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    case "porcentaje":
+      return `${valor.toLocaleString("es-AR", { maximumFractionDigits: 2 })}%`;
+    case "entero":
+      return valor.toLocaleString("es-AR");
+    default:
+      return String(valor);
+  }
 }
 
 export default function ExportarBotones({
@@ -16,9 +38,10 @@ export default function ExportarBotones({
   titulo: string;
   nombreArchivo: string;
   columnas: ColumnaReporte[];
-  // Cada fila ya viene formateada como texto/número, en el mismo orden que "columnas".
+  // Cada fila viene en el mismo orden que "columnas". Las columnas numéricas traen el
+  // número crudo (no texto), y cada formato (PDF o Excel) lo presenta como corresponde.
   // (No se pasan funciones: un Server Component no puede pasarle funciones a un
-  // Client Component, así que el formateo se hace antes, del lado del servidor.)
+  // Client Component.)
   filas: (string | number)[][];
 }) {
   const [generando, setGenerando] = useState<"excel" | "pdf" | null>(null);
@@ -27,14 +50,34 @@ export default function ExportarBotones({
     setGenerando("excel");
     try {
       const XLSX = await import("xlsx");
-      const datos = filas.map((fila) => {
-        const fila2: Record<string, string | number> = {};
-        columnas.forEach((col, i) => {
-          fila2[col.header] = fila[i];
-        });
-        return fila2;
+      const hoja = XLSX.utils.aoa_to_sheet([columnas.map((c) => c.header), ...filas]);
+
+      // Formato numérico de cada columna (los números quedan alineados a la derecha)
+      const formatos: Record<string, string> = {
+        moneda: "#,##0.00",
+        entero: "#,##0",
+        porcentaje: 'General"%"',
+      };
+      columnas.forEach((col, c) => {
+        const formato = col.tipo ? formatos[col.tipo] : undefined;
+        if (!formato) return;
+        for (let r = 1; r <= filas.length; r++) {
+          const celda = hoja[XLSX.utils.encode_cell({ r, c })];
+          if (celda && celda.t === "n") celda.z = formato;
+        }
       });
-      const hoja = XLSX.utils.json_to_sheet(datos);
+
+      // Ancho de cada columna según su contenido
+      hoja["!cols"] = columnas.map((col, c) => ({
+        wch: Math.min(
+          50,
+          Math.max(
+            col.header.length,
+            ...filas.map((f) => formatearParaPdf(f[c], col.tipo).length)
+          ) + 2
+        ),
+      }));
+
       const libro = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(libro, hoja, "Reporte");
       XLSX.writeFile(libro, `${nombreArchivo}.xlsx`);
@@ -55,17 +98,23 @@ export default function ExportarBotones({
       doc.setFontSize(9);
       doc.text(`Generado el ${new Date().toLocaleDateString("es-AR")}`, 14, 21);
 
+      const derecha = { halign: "right" as const };
+
       autoTable(doc, {
         startY: 27,
         margin: { left: 14, right: 14 },
-        head: [columnas.map((c) => c.header)],
-        body: filas.map((fila) => fila.map((valor) => String(valor))),
+        head: [
+          columnas.map((c) =>
+            esNumerica(c.tipo) ? { content: c.header, styles: derecha } : c.header
+          ),
+        ],
+        body: filas.map((fila) =>
+          fila.map((valor, i) => formatearParaPdf(valor, columnas[i].tipo))
+        ),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [30, 64, 175] },
         columnStyles: Object.fromEntries(
-          columnas
-            .map((c, i) => (c.alineacionDerecha ? [i, { halign: "right" as const }] : null))
-            .filter((x): x is [number, { halign: "right" }] => x !== null)
+          columnas.map((c, i) => [i, esNumerica(c.tipo) ? derecha : {}])
         ),
       });
 

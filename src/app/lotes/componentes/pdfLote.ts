@@ -1,26 +1,16 @@
 import type jsPDF from "jspdf";
+import {
+  dibujarBloquePedido,
+  MARGEN_X,
+  MARGEN_SUPERIOR,
+  MARGEN_INFERIOR,
+  type AutoTable,
+  type BloquePedido,
+  type ItemBloquePedido,
+} from "@/lib/pdfBloquePedido";
 
-export interface ItemLotePdf {
-  codigo: string | null;
-  nombre: string;
-  cantidad: number;
-  precioSinIva: number;
-  iva: number;
-  precioUnitario: number;
-  descuento: number;
-  subtotal: number;
-}
-
-export interface PedidoLotePdf {
-  numero: number;
-  cliente: string;
-  clienteCuit: string | null;
-  clienteDireccion: string | null;
-  conFactura: boolean;
-  modalidadPago: "CONTADO" | "CUENTA_CORRIENTE";
-  observaciones: string | null;
-  items: ItemLotePdf[];
-}
+export type ItemLotePdf = ItemBloquePedido;
+export type PedidoLotePdf = BloquePedido;
 
 export interface LotePdf {
   numero: number;
@@ -32,13 +22,17 @@ export interface LotePdf {
 
 export async function generarPdfLote(lote: LotePdf): Promise<jsPDF> {
   const { default: JsPDF } = await import("jspdf");
-  const autoTable = (await import("jspdf-autotable")).default;
+  const autoTable = (await import("jspdf-autotable")).default as unknown as AutoTable;
 
   const doc = new JsPDF();
-  let y = 15;
+  const anchoPagina = doc.internal.pageSize.getWidth();
+  const altoPagina = doc.internal.pageSize.getHeight();
+  const opciones = { mostrarNumero: true, etiquetaTotal: "Total pedido" };
+
+  let y = MARGEN_SUPERIOR;
 
   doc.setFontSize(16);
-  doc.text(`Lote de Pedidos #${lote.numero}`, 14, y);
+  doc.text(`Lote de Pedidos #${lote.numero}`, MARGEN_X, y);
   doc.setFontSize(10);
   doc.text(
     `Vendedor: ${lote.vendedor} · Creado: ${new Date(lote.creadoEn).toLocaleDateString(
@@ -48,7 +42,7 @@ export async function generarPdfLote(lote: LotePdf): Promise<jsPDF> {
         ? ` · Enviado: ${new Date(lote.enviadoEn).toLocaleDateString("es-AR")}`
         : " · Sin enviar todavía"
     }`,
-    14,
+    MARGEN_X,
     y + 6
   );
   y += 16;
@@ -56,83 +50,39 @@ export async function generarPdfLote(lote: LotePdf): Promise<jsPDF> {
   let totalGeneral = 0;
 
   for (const pedido of lote.pedidos) {
-    if (y > 260) {
+    totalGeneral += pedido.items.reduce((acc, item) => acc + item.subtotal, 0);
+
+    // Se dibuja primero en una hoja de prueba para saber cuánto ocupa el pedido.
+    // Si entra completo en una hoja pero no en lo que queda de la actual, pasa
+    // entero a la hoja siguiente en vez de quedar partido en dos.
+    const prueba = new JsPDF();
+    const finPrueba = dibujarBloquePedido(prueba, autoTable, pedido, MARGEN_SUPERIOR, opciones);
+    const altura = finPrueba - MARGEN_SUPERIOR;
+    const entraEnUnaHoja = prueba.getNumberOfPages() === 1;
+    const espacioMinimo = entraEnUnaHoja ? altura : Math.min(altura, 45);
+
+    if (y + espacioMinimo > altoPagina - MARGEN_INFERIOR) {
       doc.addPage();
-      y = 15;
+      y = MARGEN_SUPERIOR;
     }
 
-    const totalPedido = pedido.items.reduce((acc, item) => acc + item.subtotal, 0);
-    totalGeneral += totalPedido;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`${pedido.cliente} — Pedido #${pedido.numero}`, 14, y);
-    doc.setFont("helvetica", "normal");
-    y += 5;
-
-    doc.setFontSize(9);
-    doc.setTextColor(80);
-    const datos = [
-      pedido.clienteCuit ? `CUIT: ${pedido.clienteCuit}` : null,
-      pedido.clienteDireccion ? `Domicilio: ${pedido.clienteDireccion}` : null,
-      pedido.conFactura ? "Con factura" : "Sin factura",
-      pedido.modalidadPago === "CONTADO" ? "Contado" : "Cuenta corriente",
-    ]
-      .filter(Boolean)
-      .join("  ·  ");
-    doc.text(datos, 14, y);
-    y += 4;
-    if (pedido.observaciones) {
-      doc.text(`Obs: ${pedido.observaciones}`, 14, y);
-      y += 4;
-    }
-    doc.setTextColor(0);
-
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 14, right: 14 },
-      head: [["Código", "Producto", "Cant.", "S/IVA", "IVA %", "Precio", "Desc. %", "Subtotal"]],
-      body: pedido.items.map((item) => [
-        item.codigo ?? "—",
-        item.nombre,
-        String(item.cantidad),
-        `$${item.precioSinIva.toLocaleString("es-AR")}`,
-        `${item.iva}%`,
-        `$${item.precioUnitario.toLocaleString("es-AR")}`,
-        `${item.descuento}%`,
-        `$${item.subtotal.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`,
-      ]),
-      foot: [
-        [
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "Total pedido",
-          `$${totalPedido.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`,
-        ],
-      ],
-      styles: { fontSize: 7.5 },
-      headStyles: { fillColor: [30, 64, 175] },
-      footStyles: { fillColor: [241, 245, 249], textColor: 0, fontStyle: "bold" },
-    });
-
-    // @ts-expect-error -- lastAutoTable lo agrega el plugin jspdf-autotable
-    y = doc.lastAutoTable.finalY + 8;
+    y = dibujarBloquePedido(doc, autoTable, pedido, y, opciones);
   }
 
-  if (y > 270) {
+  if (y > altoPagina - MARGEN_INFERIOR - 12) {
     doc.addPage();
-    y = 15;
+    y = MARGEN_SUPERIOR;
   }
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text(
-    `Total del lote: $${totalGeneral.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`,
-    14,
-    y + 4
+    `Total del lote: $${totalGeneral.toLocaleString("es-AR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`,
+    anchoPagina - MARGEN_X,
+    y + 4,
+    { align: "right" }
   );
 
   return doc;

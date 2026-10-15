@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
+import { esErrorDeDuplicado } from "@/lib/errores";
 
 const CATEGORIAS_VALIDAS = ["RI", "MO", "EX", "CF"];
 
@@ -15,6 +16,8 @@ export interface FilaImportacionCliente {
   provincia: string;
   categoria: string;
   cuit: string;
+  email: string;
+  telefono: string;
 }
 
 export interface FilaPreviewCliente extends FilaImportacionCliente {
@@ -32,12 +35,19 @@ export async function previsualizarImportacionClientes(
   const sesionUsuario = await getSessionUsuario();
   if (!sesionUsuario) throw new Error("No autenticado.");
 
-  const provincias = await prisma.provincia.findMany({ include: { localidades: true } });
+  const [provincias, clientesExistentes] = await Promise.all([
+    prisma.provincia.findMany({ include: { localidades: true } }),
+    prisma.cliente.findMany({ select: { id: true, cuit: true, codigoCliente: true, nombre: true } }),
+  ]);
+
+  const porCuit = new Map(clientesExistentes.map((c) => [c.cuit, c]));
+  const porCodigo = new Map(clientesExistentes.map((c) => [c.codigoCliente, c]));
+
   const resultado: FilaPreviewCliente[] = [];
 
-  // Para detectar CUIT repetido DENTRO del mismo archivo (no solo contra la base),
-  // que es lo que rompía la carga sin avisar cuál era la fila problemática.
-  const cuitsVistos = new Map<string, number>(); // cuit -> primera fila donde apareció
+  // Para detectar CUIT o código repetidos DENTRO del mismo archivo
+  const cuitsVistos = new Map<string, number>();
+  const codigosVistos = new Map<string, number>();
 
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i];
@@ -54,17 +64,31 @@ export async function previsualizarImportacionClientes(
     }
 
     const cuitNormalizado = fila.cuit.trim();
-    const filaPrevia = cuitsVistos.get(cuitNormalizado);
-    if (filaPrevia) {
+    const codigoNormalizado = fila.codigoCliente.trim();
+
+    const filaCuitPrevia = cuitsVistos.get(cuitNormalizado);
+    if (filaCuitPrevia) {
       resultado.push({
         ...fila,
         fila: numeroFila,
         accion: "error",
-        mensaje: `CUIT duplicado: ya aparece en la fila ${filaPrevia} de este mismo archivo.`,
+        mensaje: `CUIT duplicado: ya aparece en la fila ${filaCuitPrevia} de este mismo archivo.`,
       });
       continue;
     }
     cuitsVistos.set(cuitNormalizado, numeroFila);
+
+    const filaCodigoPrevia = codigosVistos.get(codigoNormalizado);
+    if (filaCodigoPrevia) {
+      resultado.push({
+        ...fila,
+        fila: numeroFila,
+        accion: "error",
+        mensaje: `Código de cliente duplicado: ya aparece en la fila ${filaCodigoPrevia} de este mismo archivo.`,
+      });
+      continue;
+    }
+    codigosVistos.set(codigoNormalizado, numeroFila);
 
     const categoria = fila.categoria.trim().toUpperCase();
     if (!CATEGORIAS_VALIDAS.includes(categoria)) {
@@ -112,11 +136,24 @@ export async function previsualizarImportacionClientes(
       }
     }
 
-    const existente = await prisma.cliente.findUnique({ where: { cuit: cuitNormalizado } });
+    const existente = porCuit.get(cuitNormalizado);
+    const duenoDelCodigo = porCodigo.get(codigoNormalizado);
+
+    // El código ya lo usa OTRO cliente de la base: no se puede repetir
+    if (duenoDelCodigo && duenoDelCodigo.id !== existente?.id) {
+      resultado.push({
+        ...fila,
+        fila: numeroFila,
+        accion: "error",
+        mensaje: `El código "${codigoNormalizado}" ya lo tiene el cliente "${duenoDelCodigo.nombre}".`,
+      });
+      continue;
+    }
 
     resultado.push({
       ...fila,
       cuit: cuitNormalizado,
+      codigoCliente: codigoNormalizado,
       categoria,
       fila: numeroFila,
       accion: existente ? "actualizar" : "crear",
@@ -150,6 +187,9 @@ export async function aplicarImportacionClientes(
   // Cada fila se procesa en su propio try/catch: si una falla, seguimos con
   // las demás en vez de cortar toda la importación sin explicación.
   for (const fila of validas) {
+    const email = fila.email?.trim() || "";
+    const telefono = fila.telefono?.trim() || "";
+
     try {
       if (fila.accion === "actualizar" && fila.clienteId) {
         await prisma.cliente.update({
@@ -161,6 +201,9 @@ export async function aplicarImportacionClientes(
             categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
             provinciaId: fila.provinciaId ?? null,
             localidadId: fila.localidadId ?? null,
+            // Email y teléfono: solo se pisan si el Excel los trae cargados
+            ...(email ? { email } : {}),
+            ...(telefono ? { telefono } : {}),
           },
         });
         actualizados++;
@@ -174,6 +217,8 @@ export async function aplicarImportacionClientes(
             categoria: fila.categoria as "RI" | "MO" | "EX" | "CF",
             provinciaId: fila.provinciaId ?? null,
             localidadId: fila.localidadId ?? null,
+            email: email || null,
+            telefono: telefono || null,
             vendedorId: usuario.id,
           },
         });
@@ -182,10 +227,9 @@ export async function aplicarImportacionClientes(
     } catch (e) {
       errores.push({
         fila: fila.fila,
-        mensaje:
-          e instanceof Error && e.message.includes("Unique constraint")
-            ? `El CUIT "${fila.cuit}" ya existe en otro cliente (conflicto al guardar).`
-            : "No se pudo guardar esta fila (error inesperado).",
+        mensaje: esErrorDeDuplicado(e)
+          ? `El CUIT "${fila.cuit}" o el código "${fila.codigoCliente}" ya existe en otro cliente (conflicto al guardar).`
+          : "No se pudo guardar esta fila (error inesperado).",
       });
     }
   }

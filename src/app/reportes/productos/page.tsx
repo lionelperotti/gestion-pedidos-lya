@@ -75,13 +75,13 @@ export default async function ReporteProductosPage({
             nombreArchivo="productos-mas-vendidos"
             columnas={[
               { header: "Producto" },
-              { header: "Cantidad vendida", alineacionDerecha: true },
-              { header: "Total", alineacionDerecha: true },
+              { header: "Cantidad vendida", tipo: "entero" },
+              { header: "Total", tipo: "moneda" },
             ]}
             filas={filas.map((f) => [
               f.nombre,
               f.cantidad,
-              f.total.toLocaleString("es-AR", { maximumFractionDigits: 2 }),
+              f.total,
             ])}
           />
         </div>

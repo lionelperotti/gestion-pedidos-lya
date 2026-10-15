@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useNavegacionTeclado } from "@/lib/useNavegacionTeclado";
 
 interface ProductoResumen {
   id: string;
@@ -28,22 +30,41 @@ export default function ProductosGrid({ productos }: { productos: ProductoResume
     );
   }, [busqueda, productos]);
 
+  const router = useRouter();
+  const { indiceActivo: navIndice, onKeyDown: navKeyDown, contenedorRef: navRef, reiniciar: navReiniciar } = useNavegacionTeclado(
+    productosFiltrados,
+    (p) => router.push(`/productos/${p.id}`),
+    busqueda.trim() !== ""
+  );
+
   return (
     <div>
       <input
         type="text"
         value={busqueda}
-        onChange={(e) => setBusqueda(e.target.value)}
-        placeholder="Buscar por nombre o código..."
+        onChange={(e) => {
+          setBusqueda(e.target.value);
+          navReiniciar();
+        }}
+        onKeyDown={navKeyDown}
+        placeholder="Buscar por nombre o código... (↑ ↓ y Enter para abrir)"
         className="mb-4 w-full rounded-lg border border-slate-300 px-4 py-2.5 text-base text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-100"
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {productosFiltrados.map((producto) => (
+      <div
+        ref={navRef}
+        className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+      >
+        {productosFiltrados.map((producto, indice) => (
           <Link
             key={producto.id}
             href={`/productos/${producto.id}`}
-            className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
+            data-nav-index={indice}
+            className={`overflow-hidden rounded-lg border bg-white shadow-sm transition-shadow hover:shadow-md ${
+              busqueda.trim() !== "" && navIndice === indice
+                ? "border-blue-500 ring-2 ring-blue-300"
+                : "border-slate-200"
+            }`}
           >
             <div className="relative aspect-square bg-slate-100">
               {producto.fotoUrl ? (

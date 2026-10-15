@@ -4,12 +4,36 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { esErrorDeDuplicado, type ResultadoAccion } from "@/lib/errores";
 
 function calcularPrecioFinal(precioSinIva: number, iva: number) {
   return precioSinIva * (1 + iva / 100);
 }
 
-export async function crearProducto(formData: FormData) {
+// El código de producto no se puede repetir dentro de un mismo proveedor.
+async function validarCodigoUnico(
+  proveedorId: string,
+  codigoProveedor: string,
+  excluirId?: string
+): Promise<ResultadoAccion> {
+  if (!codigoProveedor) return undefined;
+
+  const existente = await prisma.producto.findFirst({
+    where: {
+      proveedorId,
+      codigoProveedor,
+      ...(excluirId ? { NOT: { id: excluirId } } : {}),
+    },
+  });
+  if (existente) {
+    return {
+      error: `El código "${codigoProveedor}" ya lo tiene el producto "${existente.nombre}" de este proveedor.`,
+    };
+  }
+  return undefined;
+}
+
+export async function crearProducto(formData: FormData): Promise<ResultadoAccion> {
   await requireAdmin();
 
   const nombre = String(formData.get("nombre") ?? "").trim();
@@ -23,30 +47,43 @@ export async function crearProducto(formData: FormData) {
   const marcaId = String(formData.get("marcaId") ?? "");
 
   if (!nombre || !precioSinIva || !proveedorId || !marcaId) {
-    throw new Error("Nombre, precio, proveedor y marca son obligatorios.");
+    return { error: "Nombre, precio, proveedor y marca son obligatorios." };
   }
 
-  await prisma.producto.create({
-    data: {
-      nombre,
-      descripcion: descripcion || null,
-      fotoUrl: fotoUrl || null,
-      codigoProveedor: codigoProveedor || null,
-      precioSinIva,
-      iva,
-      precioFinal: calcularPrecioFinal(precioSinIva, iva),
-      precioActualizadoEn: new Date(),
-      stock: Number(stock) || 0,
-      proveedorId,
-      marcaId,
-    },
-  });
+  const problema = await validarCodigoUnico(proveedorId, codigoProveedor);
+  if (problema) return problema;
+
+  try {
+    await prisma.producto.create({
+      data: {
+        nombre,
+        descripcion: descripcion || null,
+        fotoUrl: fotoUrl || null,
+        codigoProveedor: codigoProveedor || null,
+        precioSinIva,
+        iva,
+        precioFinal: calcularPrecioFinal(precioSinIva, iva),
+        precioActualizadoEn: new Date(),
+        stock: Number(stock) || 0,
+        proveedorId,
+        marcaId,
+      },
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) {
+      return { error: `El código "${codigoProveedor}" ya existe en este proveedor.` };
+    }
+    return { error: "No se pudo crear el producto. Intentá de nuevo." };
+  }
 
   revalidatePath("/productos");
   redirect(`/productos/marca/${marcaId}`);
 }
 
-export async function actualizarProducto(productoId: string, formData: FormData) {
+export async function actualizarProducto(
+  productoId: string,
+  formData: FormData
+): Promise<ResultadoAccion> {
   await requireAdmin();
 
   const nombre = String(formData.get("nombre") ?? "").trim();
@@ -61,35 +98,45 @@ export async function actualizarProducto(productoId: string, formData: FormData)
   const activo = formData.get("activo") === "on";
 
   if (!nombre || !precioSinIva || !proveedorId || !marcaId) {
-    throw new Error("Nombre, precio, proveedor y marca son obligatorios.");
+    return { error: "Nombre, precio, proveedor y marca son obligatorios." };
   }
 
   const productoActual = await prisma.producto.findUnique({ where: { id: productoId } });
   if (!productoActual) {
-    throw new Error("El producto ya no existe.");
+    return { error: "El producto ya no existe." };
   }
+
+  const problema = await validarCodigoUnico(proveedorId, codigoProveedor, productoId);
+  if (problema) return problema;
 
   const cambioPrecio =
     Number(productoActual.precioSinIva) !== precioSinIva ||
     Number(productoActual.iva) !== iva;
 
-  await prisma.producto.update({
-    where: { id: productoId },
-    data: {
-      nombre,
-      descripcion: descripcion || null,
-      fotoUrl: fotoUrl || null,
-      codigoProveedor: codigoProveedor || null,
-      precioSinIva,
-      iva,
-      precioFinal: calcularPrecioFinal(precioSinIva, iva),
-      ...(cambioPrecio ? { precioActualizadoEn: new Date() } : {}),
-      stock: Number(stock) || 0,
-      proveedorId,
-      marcaId,
-      activo,
-    },
-  });
+  try {
+    await prisma.producto.update({
+      where: { id: productoId },
+      data: {
+        nombre,
+        descripcion: descripcion || null,
+        fotoUrl: fotoUrl || null,
+        codigoProveedor: codigoProveedor || null,
+        precioSinIva,
+        iva,
+        precioFinal: calcularPrecioFinal(precioSinIva, iva),
+        ...(cambioPrecio ? { precioActualizadoEn: new Date() } : {}),
+        stock: Number(stock) || 0,
+        proveedorId,
+        marcaId,
+        activo,
+      },
+    });
+  } catch (e) {
+    if (esErrorDeDuplicado(e)) {
+      return { error: `El código "${codigoProveedor}" ya existe en este proveedor.` };
+    }
+    return { error: "No se pudo guardar el producto. Intentá de nuevo." };
+  }
 
   revalidatePath("/productos");
   redirect(`/productos/marca/${marcaId}`);

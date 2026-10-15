@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { subirImagenProducto } from "./imagen-actions";
+import FormAccion from "@/components/FormAccion";
+import type { ResultadoAccion } from "@/lib/errores";
 
 interface ProveedorConMarcas {
   id: string;
@@ -29,7 +31,7 @@ export default function ProductoForm({
   valoresIniciales,
   esEdicion = false,
 }: {
-  action: (formData: FormData) => void;
+  action: (formData: FormData) => Promise<ResultadoAccion>;
   proveedores: ProveedorConMarcas[];
   valoresIniciales?: Partial<ProductoFormValues>;
   esEdicion?: boolean;
@@ -76,7 +78,10 @@ export default function ProductoForm({
   }
 
   return (
-    <form action={action} className="space-y-5">
+    <FormAccion
+      action={action}
+      textoBoton={esEdicion ? "Guardar cambios" : "Crear producto"}
+    >
       <div>
         <label className="mb-1.5 block text-sm font-medium text-slate-700">Nombre</label>
         <input
@@ -250,12 +255,6 @@ export default function ProductoForm({
         </label>
       )}
 
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
-      >
-        {esEdicion ? "Guardar cambios" : "Crear producto"}
-      </button>
-    </form>
+    </FormAccion>
   );
 }

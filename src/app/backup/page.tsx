@@ -18,7 +18,7 @@ export default async function BackupPage() {
         <p className="mb-6 text-sm text-slate-600">
           Descargá un único archivo con todos los datos del sistema: Usuarios,
           Proveedores, Marcas, Productos, Clientes, Provincias, Localidades, Rubros,
-          Pedidos y Lotes. Guardalo donde prefieras (tu compu, Google Drive, etc.) como
+          Pedidos, Lotes y Resúmenes de cuenta. Guardalo donde prefieras (tu compu, Google Drive, etc.) como
           respaldo adicional, independiente de Railway.
         </p>
         <DescargarBackupBoton />

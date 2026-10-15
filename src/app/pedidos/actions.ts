@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUsuario } from "@/lib/session";
 import type { UsuarioSesion } from "@/lib/auth";
+import type { ResultadoAccion } from "@/lib/errores";
+
+const MENSAJE_SESION_VENCIDA =
+  "Tu sesión venció. Abrí una pestaña nueva, ingresá de nuevo y volvé a esta pestaña (sin recargarla) para confirmar el pedido: lo que cargaste sigue acá.";
 
 interface ItemCarrito {
   productoId: string;
@@ -32,105 +36,111 @@ async function usuarioActual() {
   return sesionUsuario as unknown as UsuarioSesion;
 }
 
-function validarDatosPedido(datos: DatosPedido) {
-  if (!datos.clienteId) {
-    throw new Error("Tenés que seleccionar un cliente.");
-  }
-  if (!datos.items || datos.items.length === 0) {
-    throw new Error("El pedido necesita al menos un producto.");
-  }
-  if (!datos.modalidadPago) {
-    throw new Error("Tenés que indicar la modalidad de pago.");
-  }
+function validarDatosPedido(datos: DatosPedido): string | null {
+  if (!datos.clienteId) return "Tenés que seleccionar un cliente.";
+  if (!datos.items || datos.items.length === 0) return "El pedido necesita al menos un producto.";
+  if (!datos.modalidadPago) return "Tenés que indicar la modalidad de pago.";
+  return null;
 }
 
-export async function crearPedido(datos: DatosPedido) {
-  const usuario = await usuarioActual();
-  validarDatosPedido(datos);
+export async function crearPedido(datos: DatosPedido): Promise<ResultadoAccion> {
+  const sesionUsuario = await getSessionUsuario();
+  if (!sesionUsuario) return { error: MENSAJE_SESION_VENCIDA };
+  const usuario = sesionUsuario as unknown as UsuarioSesion;
+
+  const problema = validarDatosPedido(datos);
+  if (problema) return { error: problema };
 
   const productos = await prisma.producto.findMany({
     where: { id: { in: datos.items.map((i) => i.productoId) } },
   });
+  if (productos.length !== new Set(datos.items.map((i) => i.productoId)).size) {
+    return { error: "Uno de los productos del pedido ya no existe. Revisá el pedido." };
+  }
 
-  const nuevoPedido = await prisma.pedido.create({
-    data: {
-      clienteId: datos.clienteId,
-      vendedorId: usuario.id,
-      conFactura: datos.conFactura,
-      modalidadPago: datos.modalidadPago,
-      observaciones: datos.observaciones || null,
-      items: {
-        create: datos.items.map((item) => {
-          const producto = productos.find((p) => p.id === item.productoId);
-          if (!producto) {
-            throw new Error("Uno de los productos ya no existe.");
-          }
-          return {
+  let nuevoPedidoId: string;
+  try {
+    const nuevoPedido = await prisma.pedido.create({
+      data: {
+        clienteId: datos.clienteId,
+        vendedorId: usuario.id,
+        conFactura: datos.conFactura,
+        modalidadPago: datos.modalidadPago,
+        observaciones: datos.observaciones || null,
+        items: {
+          create: datos.items.map((item) => ({
             productoId: item.productoId,
             cantidad: item.cantidad,
             precioSinIva: item.precioSinIva,
             iva: item.iva,
             precioUnitario: precioFinal(item.precioSinIva, item.iva),
             descuento: item.descuento || 0,
-          };
-        }),
+          })),
+        },
       },
-    },
-  });
+    });
+    nuevoPedidoId = nuevoPedido.id;
+  } catch {
+    return { error: "No se pudo guardar el pedido. Intentá de nuevo." };
+  }
 
   revalidatePath("/pedidos");
-  redirect(`/pedidos/${nuevoPedido.id}`);
+  redirect(`/pedidos/${nuevoPedidoId}`);
 }
 
-export async function actualizarPedido(pedidoId: string, datos: Omit<DatosPedido, "clienteId">) {
-  const usuario = await usuarioActual();
+export async function actualizarPedido(
+  pedidoId: string,
+  datos: Omit<DatosPedido, "clienteId">
+): Promise<ResultadoAccion> {
+  const sesionUsuario = await getSessionUsuario();
+  if (!sesionUsuario) return { error: MENSAJE_SESION_VENCIDA };
+  const usuario = sesionUsuario as unknown as UsuarioSesion;
 
   const pedidoActual = await prisma.pedido.findUnique({ where: { id: pedidoId } });
-  if (!pedidoActual) throw new Error("El pedido no existe.");
+  if (!pedidoActual) return { error: "El pedido ya no existe." };
   if (pedidoActual.estado !== "PENDIENTE") {
-    throw new Error("Solo se pueden editar pedidos pendientes.");
+    return { error: "Solo se pueden editar pedidos pendientes." };
   }
   if (usuario.perfil !== "Administrador" && pedidoActual.vendedorId !== usuario.id) {
-    throw new Error("No tenés permiso para editar este pedido.");
+    return { error: "No tenés permiso para editar este pedido." };
   }
   if (!datos.items || datos.items.length === 0) {
-    throw new Error("El pedido necesita al menos un producto.");
+    return { error: "El pedido necesita al menos un producto." };
   }
-  if (!datos.modalidadPago) {
-    throw new Error("Tenés que indicar la modalidad de pago.");
-  }
+  if (!datos.modalidadPago) return { error: "Tenés que indicar la modalidad de pago." };
 
   const productos = await prisma.producto.findMany({
     where: { id: { in: datos.items.map((i) => i.productoId) } },
   });
+  if (productos.length !== new Set(datos.items.map((i) => i.productoId)).size) {
+    return { error: "Uno de los productos del pedido ya no existe. Revisá el pedido." };
+  }
 
-  await prisma.$transaction([
-    prisma.pedidoItem.deleteMany({ where: { pedidoId } }),
-    prisma.pedido.update({
-      where: { id: pedidoId },
-      data: {
-        conFactura: datos.conFactura,
-        modalidadPago: datos.modalidadPago,
-        observaciones: datos.observaciones || null,
-        items: {
-          create: datos.items.map((item) => {
-            const producto = productos.find((p) => p.id === item.productoId);
-            if (!producto) {
-              throw new Error("Uno de los productos ya no existe.");
-            }
-            return {
+  try {
+    await prisma.$transaction([
+      prisma.pedidoItem.deleteMany({ where: { pedidoId } }),
+      prisma.pedido.update({
+        where: { id: pedidoId },
+        data: {
+          conFactura: datos.conFactura,
+          modalidadPago: datos.modalidadPago,
+          observaciones: datos.observaciones || null,
+          items: {
+            create: datos.items.map((item) => ({
               productoId: item.productoId,
               cantidad: item.cantidad,
               precioSinIva: item.precioSinIva,
               iva: item.iva,
               precioUnitario: precioFinal(item.precioSinIva, item.iva),
               descuento: item.descuento || 0,
-            };
-          }),
+            })),
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
+  } catch {
+    return { error: "No se pudo guardar el pedido. Intentá de nuevo." };
+  }
 
   revalidatePath("/pedidos");
   redirect(`/pedidos/${pedidoId}`);

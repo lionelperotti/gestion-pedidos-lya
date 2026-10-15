@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { crearMarca } from "../actions";
+import FormAccion from "@/components/FormAccion";
 
 export default async function NuevaMarcaPage() {
   await requireAdmin();
@@ -21,7 +22,7 @@ export default async function NuevaMarcaPage() {
       </header>
 
       <div className="mx-auto max-w-md px-6 py-8">
-        <form action={crearMarca} className="space-y-5">
+        <FormAccion action={crearMarca} textoBoton="Crear marca">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Nombre
@@ -34,7 +35,7 @@ export default async function NuevaMarcaPage() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
-              Proveedores relacionados
+              Proveedores relacionados (al menos uno)
             </label>
             <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-300 p-3">
               {proveedores.map((proveedor) => (
@@ -53,13 +54,7 @@ export default async function NuevaMarcaPage() {
               )}
             </div>
           </div>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
-          >
-            Crear marca
-          </button>
-        </form>
+        </FormAccion>
       </div>
     </main>
   );
